@@ -30,25 +30,46 @@ async def audio_sender(websocket):
 
 async def message_receiver(websocket):
     """Reçoit l'audio de Piper et le JSON (comme le MAX98357A et l'écran TFT)"""
+    q = asyncio.Queue()
     stream = sd.OutputStream(samplerate=SPK_SAMPLE_RATE, channels=1, dtype='int16')
+
+    async def playback_worker():
+        while True:
+            audio_data = await q.get()
+            try:
+                # OPT-014: Utilise to_thread pour ne pas bloquer l'event loop pendant l'écriture I/O
+                await asyncio.to_thread(stream.write, audio_data)
+            except Exception as e:
+                print(f"❌ Erreur playback: {e}")
+            finally:
+                q.task_done()
+
     with stream:
-        async for message in websocket:
-            if isinstance(message, bytes):
-                # Le serveur envoie de l'audio PCM brut
-                audio_data = np.frombuffer(message, dtype=np.int16)
-                stream.write(audio_data)
-            else:
-                # Le serveur envoie un JSON de commande
-                try:
-                    data = json.loads(message)
-                    if "emotion" in data:
-                        print(f"\n🖥️ [Écran TFT Simulé] Émotion : {data['emotion']}")
-                    if "speech" in data:
-                        print(f"🤖 [Robot] Dit : {data['speech']}")
-                    if "status" in data:
-                        print(f"⚡ [Status] {data['status']}")
-                except json.JSONDecodeError:
-                    print(f"Message texte non-JSON: {message}")
+        worker_task = asyncio.create_task(playback_worker())
+        try:
+            async for message in websocket:
+                if isinstance(message, bytes):
+                    # Le serveur envoie de l'audio PCM brut
+                    audio_data = np.frombuffer(message, dtype=np.int16)
+                    q.put_nowait(audio_data)
+                else:
+                    # Le serveur envoie un JSON de commande
+                    try:
+                        data = json.loads(message)
+                        if "emotion" in data:
+                            print(f"\n🖥️ [Écran TFT Simulé] Émotion : {data['emotion']}")
+                        if "speech" in data:
+                            print(f"🤖 [Robot] Dit : {data['speech']}")
+                        if "status" in data:
+                            print(f"⚡ [Status] {data['status']}")
+                    except json.JSONDecodeError:
+                        print(f"Message texte non-JSON: {message}")
+        finally:
+            worker_task.cancel()
+            try:
+                await worker_task
+            except asyncio.CancelledError:
+                pass
 
 async def main():
     try:
