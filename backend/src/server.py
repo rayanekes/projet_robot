@@ -31,7 +31,7 @@ llm_lock = asyncio.Lock()
 # INITIALISATION ML
 # =========================
 
-LLM_MODEL_PATH = os.path.join(MODELS_DIR, "qwen2.5-3b-instruct-q5_k_m.gguf")
+LLM_MODEL_PATH = os.path.join(MODELS_DIR, "qwen2.5-7b-instruct-q4_k_m.gguf")
 WHISPER_MODEL = "medium"
 WHISPER_DEVICE = "cuda"
 
@@ -54,8 +54,8 @@ def load_models():
     n_layers = -1
     try:
         free_vram, total_vram = torch.cuda.mem_get_info()
-        MODEL_VRAM_MB = 2400
-        SAFETY_MARGIN_MB = 500
+        MODEL_VRAM_MB = 4500
+        SAFETY_MARGIN_MB = 400
         if free_vram < (MODEL_VRAM_MB + SAFETY_MARGIN_MB) * 1024 * 1024:
             n_layers = 20
             print(f"⚠️ VRAM faible, offload partiel: {n_layers} layers")
@@ -149,9 +149,15 @@ async def handle_esp32_connection(websocket):
             session.trim_history()
             await session.send_json("status", "thinking")
             
-            # FIX-012: Pacing dynamique corrigé
+            # FIX-012: Pacing dynamique strict (Token Bucket ou timing réel)
             BYTES_PER_SAMPLE = 2
-            pacing = (AUDIO_CHUNK_SIZE_OUT / BYTES_PER_SAMPLE) / SAMPLE_RATE_TTS * 0.90
+            # On envoie des petits morceaux (ex: 1024 octets = 512 samples = ~23ms d'audio)
+            SMALL_CHUNK = 1024
+            chunk_duration = (SMALL_CHUNK / BYTES_PER_SAMPLE) / SAMPLE_RATE_TTS
+
+            # Pacing très légèrement accéléré (0.95) pour éviter que le buffer ESP32 ne se vide,
+            # mais assez lent pour ne pas déborder sa file d'attente
+            pacing = chunk_duration * 0.95
 
             async with llm_lock:
                 proc = await asyncio.create_subprocess_exec(
@@ -161,11 +167,20 @@ async def handle_esp32_connection(websocket):
 
                 async def pipe_out():
                     try:
+                        start_time = time.time()
+                        total_sent = 0
                         while True:
-                            data = await proc.stdout.read(AUDIO_CHUNK_SIZE_OUT)
+                            data = await proc.stdout.read(SMALL_CHUNK)
                             if not data or session.interrupt_flag: break
+
                             await session.ws.send(data)
-                            await asyncio.sleep(pacing)
+                            total_sent += len(data)
+
+                            # Temps théorique où on devrait être
+                            target_time = start_time + (total_sent / BYTES_PER_SAMPLE / SAMPLE_RATE_TTS) * 0.95
+                            now = time.time()
+                            if target_time > now:
+                                await asyncio.sleep(target_time - now)
                     except: pass
 
                 out_task = asyncio.create_task(pipe_out())
@@ -258,12 +273,17 @@ async def handle_esp32_connection(websocket):
                         print(f"📝 [WHISPER] {text}")
                         asyncio.create_task(run_llm_and_tts(text))
                     session.audio_buffer = []; session.silence_frames = 0
-    except Exception as e: print(f"⚠️ [SERVEUR] Déconnexion: {e}")
-    finally: print(f"🔌 [SERVEUR] Session terminée: {websocket.remote_address}")
+    except websockets.exceptions.ConnectionClosed as e:
+        print(f"⚠️ [SERVEUR] ESP32 déconnecté (Code {e.code})")
+    except Exception as e:
+        print(f"⚠️ [SERVEUR] Erreur inattendue: {e}")
+    finally:
+        print(f"🔌 [SERVEUR] Session terminée: {websocket.remote_address}")
 
 async def main():
-    # FIX-002: Désactiver ping_interval/timeout
-    async with websockets.serve(handle_esp32_connection, "0.0.0.0", 8765, ping_interval=None, ping_timeout=None, max_size=2**20):
+    # FIX-002: Désactiver ping_interval/timeout pour éviter les fermetures prématurées
+    # Nous ajoutons aussi un buffer plus large pour mieux absorber les légers pics réseau
+    async with websockets.serve(handle_esp32_connection, "0.0.0.0", 8765, ping_interval=None, ping_timeout=None, max_size=2**20, write_limit=2**20):
         print("\n🚀 [SERVEUR] Prêt ! Port 8765")
         await asyncio.Future()
 

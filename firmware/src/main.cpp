@@ -195,22 +195,18 @@ void networkTask(void *pvParameters) {
   network->initWebSocket(targetIP, ws_server_port);
 
   AudioChunk rxChunk;
-  unsigned long lastConnCheck = millis();
-  uint32_t backoff = 2000;
 
   for (;;) {
     esp_task_wdt_reset();
     network->loop();
+
     if (xQueueReceive(audioRxQueue, &rxChunk, 0) == pdPASS) {
-      if (rxChunk.data) { network->sendAudio(rxChunk.data, rxChunk.length); free(rxChunk.data); }
+      if (rxChunk.data) {
+        network->sendAudio(rxChunk.data, rxChunk.length);
+        free(rxChunk.data);
+      }
     }
-    if (millis() - lastConnCheck > backoff) {
-      if (!network->isConnected()) { 
-          network->initWebSocket(targetIP, ws_server_port); 
-          backoff = std::min(backoff * 2, (uint32_t)60000);
-      } else { backoff = 2000; }
-      lastConnCheck = millis();
-    }
+
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
@@ -226,9 +222,23 @@ void micTask(void *pvParameters) {
         if (suspendMic) { vTaskDelay(100 / portTICK_PERIOD_MS); continue; }
 
         size_t r = audio->readMic(staticMicBuffer, 2048);
-        if (r > 0 && uxQueueSpacesAvailable(audioRxQueue) > 2) {
+
+        if (r > 0) {
+            // Anti-Lag : si la queue est pleine, on supprime le plus vieux paquet pour insérer le nouveau.
+            // On privilégie TOUJOURS l'audio le plus récent pour éviter que le retard (lag) ne s'accumule.
+            if (uxQueueSpacesAvailable(audioRxQueue) == 0) {
+                AudioChunk oldChunk;
+                if (xQueueReceive(audioRxQueue, &oldChunk, 0) == pdPASS) {
+                    if (oldChunk.data) free(oldChunk.data);
+                }
+            }
+
             int16_t* heapBuf = (int16_t*)malloc(r);
-            if (heapBuf) { memcpy(heapBuf, staticMicBuffer, r); AudioChunk c = {(uint8_t*)heapBuf, r}; if (xQueueSend(audioRxQueue, &c, 0) != pdPASS) free(heapBuf); }
+            if (heapBuf) {
+                memcpy(heapBuf, staticMicBuffer, r);
+                AudioChunk c = {(uint8_t*)heapBuf, r};
+                if (xQueueSend(audioRxQueue, &c, 0) != pdPASS) free(heapBuf);
+            }
         }
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }

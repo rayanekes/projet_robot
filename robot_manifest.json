@@ -1,6 +1,6 @@
 {
   "project": "Robot Assistant IA Local - Rayane",
-  "version": "2.1_stable",
+  "version": "3.4_stable",
   "status": "Hardware_Validation_Phase",
   "hardware": {
     "mcu": "ESP32 DevKit V1 (Dual-Core)",
@@ -49,7 +49,7 @@
   "ai_backend": {
     "vad": "Silero VAD (Threshold 0.3)",
     "stt": "Faster-Whisper Medium (CUDA)",
-    "llm": "Qwen2.5-3B-Instruct-GGUF (Stable on 6GB VRAM GPUs)",
+    "llm": "Qwen2.5-7B-Instruct-GGUF (Stable on 6GB VRAM GPUs)",
     "tts": "Piper (fr_FR-siwis-medium.onnx)",
     "protocol": "WebSocket port 8765"
   },
