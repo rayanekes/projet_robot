@@ -261,8 +261,9 @@ async def handle_esp32_connection(websocket):
                     session.is_speaking = False
                     audio_data = np.concatenate(session.audio_buffer).astype(np.float32) / 32768.0
                     def run_whisper():
-                        # FIX-003: Transcribe instead of translate
-                        segs, _ = whisper.transcribe(audio_data, task="transcribe", language="fr", beam_size=5, vad_filter=True)
+                        # Use translate task without forcing language. This allows Whisper to detect
+                        # languages like Arabic/Darija, translate them to English, and pass to LLM.
+                        segs, _ = whisper.transcribe(audio_data, task="translate", beam_size=5, vad_filter=True)
                         return "".join([s.text for s in segs]).strip()
                     text = await asyncio.to_thread(run_whisper)
                     if text: 
