@@ -9,7 +9,7 @@
     {
       "name": "Vérification des Modèles LLM (Llama.cpp)",
       "type": "file_exists",
-      "path": "backend/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+      "path": "backend/models/qwen2.5-7b-instruct-q4_k_m.gguf",
       "critical": true,
       "resolution_if_missing": "Demander à l'utilisateur de copier le fichier '.gguf' (plusieurs Go) depuis son ancien projet vers 'backend/models/'."
     },
@@ -72,7 +72,7 @@
   "instructions_pour_gemini_cli": [
     "1. Lisez ce JSON et positionnez-vous à la racine du projet cloné.",
     "2. Exécutez itérativement chaque objet du tableau 'checks' selon son type ('file_exists', 'shell_command').",
-    "3. Si un 'file_exists' échoue, vérifiez avec 'find ~ -name qwen2.5-3b-instruct-q5_k_m.gguf' si le modèle est caché ailleurs sur le disque de Rayane, et déplacez-le automatiquement.",
+    "3. Si un 'file_exists' échoue, vérifiez avec 'find ~ -name qwen2.5-7b-instruct-q4_k_m.gguf' si le modèle est caché ailleurs sur le disque de Rayane, et déplacez-le automatiquement.",
     "4. Si une dépendance APT (Portaudio ou FFMPEG) manque, utilisez 'sudo apt-get' comme spécifié dans 'resolution_if_missing' (demandez le mot de passe sudo à Rayane).",
     "5. Fournissez un rapport final clair listant: [OK] Modèles présents, [OK] CUDA fonctionnel, [OK] Dépendances Python installées."
   ]

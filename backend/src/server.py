@@ -31,7 +31,7 @@ llm_lock = asyncio.Lock()
 # INITIALISATION ML
 # =========================
 
-LLM_MODEL_PATH = os.path.join(MODELS_DIR, "qwen2.5-3b-instruct-q5_k_m.gguf")
+LLM_MODEL_PATH = os.path.join(MODELS_DIR, "qwen2.5-7b-instruct-q4_k_m.gguf")
 WHISPER_MODEL = "medium"
 WHISPER_DEVICE = "cuda"
 
@@ -54,8 +54,8 @@ def load_models():
     n_layers = -1
     try:
         free_vram, total_vram = torch.cuda.mem_get_info()
-        MODEL_VRAM_MB = 2400
-        SAFETY_MARGIN_MB = 500
+        MODEL_VRAM_MB = 4500
+        SAFETY_MARGIN_MB = 400
         if free_vram < (MODEL_VRAM_MB + SAFETY_MARGIN_MB) * 1024 * 1024:
             n_layers = 20
             print(f"⚠️ VRAM faible, offload partiel: {n_layers} layers")
