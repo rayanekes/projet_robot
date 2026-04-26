@@ -44,7 +44,7 @@ pip install -r requirements.txt
 Pour des raisons de taille de fichiers, les modèles d'Intelligence Artificielle (GGUF, ONNX) ne sont pas stockés sur GitHub. Vous devez les copier ou les télécharger manuellement dans les dossiers suivants :
 
 1. **Modèle LLM (Llama.cpp) :**
-   - Placez `qwen2.5-3b-instruct-q5_k_m.gguf` dans le dossier `backend/models/`.
+   - Placez `qwen2.5-7b-instruct-q4_k_m.gguf` dans le dossier `backend/models/`.
 2. **Modèle TTS (Piper ONNX) :**
    - Placez le fichier de voix `fr_FR-siwis-medium.onnx` (et son fichier `.json` associé) dans le dossier `backend/piper/`. L'exécutable lui-même est installé via pip (`piper-tts`).
 
