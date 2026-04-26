@@ -1,0 +1,10 @@
+faster-whisper==1.0.1
+silero-vad==5.1.2
+llama-cpp-python==0.2.60
+websockets==12.0
+numpy==1.26.4
+torch==2.2.1
+scipy==1.12.0
+sounddevice==0.4.6
+Pillow==10.2.0
+piper-tts==1.4.2

@@ -1,0 +1,45 @@
+{
+  "project_name": "Robot Assistant IA Local (v3.0_stable)",
+  "version": "3.0.0",
+  "goal": "Agent conversationnel autonome 100% local avec interface Spotify-like et animations GIF fluides.",
+  "hardware_config": {
+    "mcu": "ESP32 DevKit (dual-core 240MHz, 520KB SRAM)",
+    "gpio_map": {
+      "SPI_BUS": { "SCK": 18, "MOSI": 23, "MISO": 19, "note": "Shared bus for TFT, SD, and Touch" },
+      "TFT_ST7789": { "CS": 14, "DC": 21, "RST": 4, "freq": "20MHz" },
+      "SD_CARD": { "CS": 5, "freq": "4MHz" },
+      "TOUCH_XPT2046": { "CS": 13 },
+      "AUDIO_OUT_MAX98357A": { "LRC": 26, "BCLK": 27, "DIN": 12, "SD_MODE": 15 },
+      "AUDIO_IN_INMP441": { "WS": 25, "SCK": 32, "SD": 33, "LR_PIN": "GND" }
+    },
+    "passive_components": {
+      "filtering": "100µF + 100nF on MAX98357A VIN; 10µF + 100nF on INMP441 VCC",
+      "audio_gain": "10kΩ resistor on MAX GAIN to GND (~3.6dB)",
+      "amplifier_sd": "390kΩ pull-up on MAX SD to 5V (hardware limit)"
+    }
+  },
+  "software_stack": {
+    "firmware": {
+      "rtos": "FreeRTOS (Net:P3/C0, Orc:P2/C1, Disp:P1/C1, Mic:P4/C1, Spk:P5/C1)",
+      "features": ["WiFiMulti", "Auto-IP Detection (10.42.0.1 / 192.168.11.113)", "Dynamic Memory Allocation", "Task Watchdog (30s)"],
+      "audio_fix": "I2S driver forced uninstall during mode switching (Spotify <-> AI)"
+    },
+    "backend_python": {
+      "stt": "faster-whisper (medium, int8_float16, CUDA)",
+      "vad": "silero_vad (threshold 0.3, adaptive barge-in)",
+      "llm": "llama-cpp-python (Qwen2.5-3B-Instruct-GGUF, auto-vram n_gpu_layers)",
+      "tts": "Piper (fr_FR-siwis-medium.onnx, absolute path mapping)",
+      "concurrency": "RobotSession class for multi-client isolation, Lock() on LLM calls"
+    }
+  },
+  "ui_state_machine": {
+    "format": "GIF_Animated_Delta_Frames (320x240, 16 colors, 15fps)",
+    "states": {
+      "IDLE": "/ui/neutre.gif",
+      "LISTENING": "/ui/ecoute.gif",
+      "THINKING": "/ui/reflexion.gif",
+      "SPEAKING": "/ui/parle.gif",
+      "ERROR": "/ui/erreur.gif"
+    }
+  }
+}
