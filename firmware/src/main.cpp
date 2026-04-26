@@ -220,6 +220,8 @@ void micTask(void *pvParameters) {
         bool suspendMic = (currentState == SPOTIFY_UI) || (!network->isConnected()) || (isMp3ModeInitialized && mp3Player->isPlaying());
 
         if (suspendMic) { vTaskDelay(100 / portTICK_PERIOD_MS); continue; }
+        // En mode MP3, on suspend le micro
+        if (currentState == OFFLINE_MP3 || !network->isConnected()) { vTaskDelay(100 / portTICK_PERIOD_MS); continue; }
 
         size_t r = audio->readMic(staticMicBuffer, 2048);
 
