@@ -97,6 +97,10 @@ class RobotSession:
             "tu DOIS utiliser \"command\": \"play_song\" et extraire exactement le titre dans \"title\": \"[titre]\". "
             "Par exemple, si on te dit 'je veux écouter L Morphine Skit', ton JSON sera : "
             "{\"speech\": \"Je lance Skit de L Morphine.\", \"emotion\": \"joie\", \"command\": \"play_song\", \"title\": \"morphine\"}. "
+            "Si l'utilisateur dit 'ouvre spotify' ou 'ouvre l'interface mp3', utilise \"command\": \"start_mp3\". "
+            "Si l'utilisateur dit 'ferme spotify', 'ferme la musique', 'arrête la musique', utilise \"command\": \"stop_mp3\". "
+            "Si l'utilisateur dit 'pause', 'mets en pause la musique', utilise \"command\": \"pause_mp3\". "
+            "Si l'utilisateur dit 'reprend la', 'continue la musique', utilise \"command\": \"resume_mp3\". "
             "Sinon, utilise \"command\": \"none\" et choisis une émotion (neutre, ecoute, reflexion, parle, erreur). "
             "Réponds STRICTEMENT au format JSON."
         )
