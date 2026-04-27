@@ -271,9 +271,6 @@ void FaceRenderer::tick(uint32_t delta_ms) {
     if (_emotion == FaceEmotion::ECOUTE && _scan_ring) {
         _updateScanRing(delta_ms);
     }
-
-    lv_task_handler();
-    lv_tick_inc(delta_ms);
 }
 
 // ============================================================

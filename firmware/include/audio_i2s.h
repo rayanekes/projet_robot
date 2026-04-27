@@ -14,7 +14,7 @@
 #define I2S_SPK_PORT I2S_NUM_1
 #define I2S_SPK_WS   26
 #define I2S_SPK_BCLK 27
-#define I2S_SPK_DIN  22
+#define I2S_SPK_DIN  12
 
 // Fréquence d'échantillonnage
 #define SAMPLE_RATE_MIC 16000 // STT Whisper

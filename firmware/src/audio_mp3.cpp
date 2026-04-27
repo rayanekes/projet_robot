@@ -1,7 +1,7 @@
 #include "audio_mp3.h"
 
 // Définitions des broches I2S pour le MAX98357A
-#define I2S_DOUT 22
+#define I2S_DOUT 12
 #define I2S_BCLK 27
 #define I2S_LRC 26
 
