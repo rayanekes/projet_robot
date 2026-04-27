@@ -75,7 +75,7 @@ Le robot requiert une connexion précise entre l'ESP32 et les périphériques I2
 | | SD | 33 | Serial Data (Données audio sortantes) |
 | **Haut-Parleur (MAX98357A)**| LRC (WS) | 26 | Word Select |
 | | BCLK | 27 | Bit Clock |
-| | DIN | 22 | Data IN (Données audio entrantes) |
+| | DIN | 12 | Data IN (Données audio entrantes) |
 | | VIN | 5V / VIN | Attention: Préférable d'alimenter avec un Step-Down 5V externe |
 | **Écran (ST7789 SPI)** | MOSI | 23 | Master Out Slave In |
 | | MISO | 19 | Master In Slave Out |
