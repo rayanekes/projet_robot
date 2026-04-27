@@ -352,7 +352,7 @@ void displayTask(void *pvParameters) {
                         mp3Player->play(lastPlayedFile.c_str());
                     }
                 }
-                face->setEmotion(FaceEmotion::ECOUTE); // Visage écoute vert pendant la musique
+                face->setEmotion(FaceEmotion::MUSIQUE); // Visage musique bleu pendant la musique
             }
             lastState = currentState;
         }
