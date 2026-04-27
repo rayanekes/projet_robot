@@ -221,7 +221,7 @@ void micTask(void *pvParameters) {
 
         if (suspendMic) { vTaskDelay(100 / portTICK_PERIOD_MS); continue; }
         // En mode MP3, on suspend le micro
-        if (currentState == OFFLINE_MP3 || !network->isConnected()) { vTaskDelay(100 / portTICK_PERIOD_MS); continue; }
+        if (currentState == BACKGROUND_MP3 || !network->isConnected()) { vTaskDelay(100 / portTICK_PERIOD_MS); continue; }
 
         size_t r = audio->readMic(staticMicBuffer, 2048);
 
@@ -399,12 +399,14 @@ void displayTask(void *pvParameters) {
                 }
             }
 
+            lv_tick_inc(delta > 50 ? 16 : delta);
             lv_task_handler();
             vTaskDelay(10 / portTICK_PERIOD_MS);
 
         } else if (currentState == BACKGROUND_MP3) {
             if (isMp3ModeInitialized) mp3Player->loop();
             if (isFaceInitialized) face->tick(delta > 50 ? 16 : delta); // Animer le visage pendant la musique
+            lv_tick_inc(delta > 50 ? 16 : delta);
             lv_task_handler(); // INDISPENSABLE pour que LVGL dessine à l'écran
             vTaskDelay(10 / portTICK_PERIOD_MS);
 
@@ -423,6 +425,7 @@ void displayTask(void *pvParameters) {
             }
 
             if (isFaceInitialized) face->tick(delta > 50 ? 16 : delta);
+            lv_tick_inc(delta > 50 ? 16 : delta);
             lv_task_handler(); // INDISPENSABLE pour que LVGL dessine à l'écran
             vTaskDelay(10 / portTICK_PERIOD_MS);
         }
