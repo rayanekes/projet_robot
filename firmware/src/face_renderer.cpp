@@ -201,9 +201,6 @@ void FaceRenderer::_destroyDecoObjects() {
     if (_deco_1)     { lv_obj_del(_deco_1);     _deco_1 = nullptr; }
     if (_deco_2)     { lv_obj_del(_deco_2);     _deco_2 = nullptr; }
     if (_scan_ring)  { lv_obj_del(_scan_ring);  _scan_ring = nullptr; }
-    if (_bar3)       { lv_obj_del(_bar3);       _bar3 = nullptr; }
-    if (_bar4)       { lv_obj_del(_bar4);       _bar4 = nullptr; }
-    if (_note_icon)  { lv_obj_del(_note_icon);  _note_icon = nullptr; }
 }
 
 // ============================================================
@@ -237,7 +234,6 @@ void FaceRenderer::setEmotionFromString(const String& name) {
     else if (name == "reflexion" || name == "thinking")  setEmotion(FaceEmotion::REFLEXION);
     else if (name == "parle"     || name == "speaking")  setEmotion(FaceEmotion::PARLE);
     else if (name == "erreur"    || name == "error")     setEmotion(FaceEmotion::ERREUR);
-    else if (name == "musique"   || name == "music")     setEmotion(FaceEmotion::MUSIQUE);
 }
 
 // ============================================================
@@ -275,11 +271,6 @@ void FaceRenderer::tick(uint32_t delta_ms) {
     if (_emotion == FaceEmotion::ECOUTE && _scan_ring) {
         _updateScanRing(delta_ms);
     }
-
-    // Animation equalizer en MUSIQUE
-    if (_emotion == FaceEmotion::MUSIQUE) {
-        _updateMusiqueAnim(delta_ms);
-    }
 }
 
 // ============================================================
@@ -299,7 +290,6 @@ void FaceRenderer::_applyEmotion(FaceEmotion emotion, bool animated) {
         case FaceEmotion::REFLEXION: _applyReflexion(animated); break;
         case FaceEmotion::PARLE:     _applyParle(animated);     break;
         case FaceEmotion::ERREUR:    _applyErreur(animated);    break;
-        case FaceEmotion::MUSIQUE:   _applyMusique(animated);   break;
     }
 }
 
@@ -472,80 +462,6 @@ void FaceRenderer::_applyErreur(bool animated) {
 }
 
 // ============================================================
-//  _applyMusique() — Bleu ciel, yeux plissés/arrondis, égaliseur
-// ============================================================
-void FaceRenderer::_applyMusique(bool animated) {
-    lv_color_t col = _colorMusique();
-
-    // Yeux "heureux" ou "fermés" pour la musique
-    // On simule des yeux plissés en diminuant la hauteur et augmentant le radius
-    lv_obj_set_size(_eye_left, EYE_W, 16);
-    lv_obj_set_pos(_eye_left, EYE_LX - EYE_W/2, EYE_Y - 8);
-    lv_obj_set_style_bg_color(_eye_left, col, 0);
-    lv_obj_set_style_radius(_eye_left, 8, 0);
-    lv_obj_set_style_bg_opa(_pupil_left, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_bg_opa(_shine_left, LV_OPA_TRANSP, 0);
-
-    lv_obj_set_size(_eye_right, EYE_W, 16);
-    lv_obj_set_pos(_eye_right, EYE_RX - EYE_W/2, EYE_Y - 8);
-    lv_obj_set_style_bg_color(_eye_right, col, 0);
-    lv_obj_set_style_radius(_eye_right, 8, 0);
-    lv_obj_set_style_bg_opa(_pupil_right, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_bg_opa(_shine_right, LV_OPA_TRANSP, 0);
-
-    // Bouche en "O" ou petit sourire
-    lv_obj_set_size(_mouth_outer, 40, 20);
-    lv_obj_set_pos(_mouth_outer, SCR_W/2 - 20, MOUTH_Y - 10);
-    lv_obj_set_style_bg_color(_mouth_outer, col, 0);
-    lv_obj_set_style_radius(_mouth_outer, 10, 0);
-    lv_obj_set_style_bg_opa(_mouth_inner, LV_OPA_TRANSP, 0);
-
-    // Création des barres d'égaliseur (4 barres) en bas
-    int barW = 12;
-    int spacing = 6;
-    int totalW = 4 * barW + 3 * spacing;
-    int startX = SCR_W/2 - totalW/2;
-    int baseY = MOUTH_Y + 30; // Juste en dessous de la bouche
-
-    _deco_1 = lv_obj_create(_screen); // Bar 1
-    lv_obj_set_size(_deco_1, barW, 10);
-    lv_obj_set_pos(_deco_1, startX, baseY - 10);
-    lv_obj_set_style_bg_color(_deco_1, col, 0);
-    lv_obj_set_style_radius(_deco_1, 4, 0);
-    lv_obj_set_style_border_width(_deco_1, 0, 0);
-
-    _deco_2 = lv_obj_create(_screen); // Bar 2
-    lv_obj_set_size(_deco_2, barW, 10);
-    lv_obj_set_pos(_deco_2, startX + barW + spacing, baseY - 10);
-    lv_obj_set_style_bg_color(_deco_2, col, 0);
-    lv_obj_set_style_radius(_deco_2, 4, 0);
-    lv_obj_set_style_border_width(_deco_2, 0, 0);
-
-    _bar3 = lv_obj_create(_screen); // Bar 3
-    lv_obj_set_size(_bar3, barW, 10);
-    lv_obj_set_pos(_bar3, startX + 2*(barW + spacing), baseY - 10);
-    lv_obj_set_style_bg_color(_bar3, col, 0);
-    lv_obj_set_style_radius(_bar3, 4, 0);
-    lv_obj_set_style_border_width(_bar3, 0, 0);
-
-    _bar4 = lv_obj_create(_screen); // Bar 4
-    lv_obj_set_size(_bar4, barW, 10);
-    lv_obj_set_pos(_bar4, startX + 3*(barW + spacing), baseY - 10);
-    lv_obj_set_style_bg_color(_bar4, col, 0);
-    lv_obj_set_style_radius(_bar4, 4, 0);
-    lv_obj_set_style_border_width(_bar4, 0, 0);
-
-    // Note de musique flottante
-    _note_icon = lv_label_create(_screen);
-    lv_label_set_text(_note_icon, LV_SYMBOL_AUDIO);
-    lv_obj_set_style_text_color(_note_icon, col, 0);
-    lv_obj_set_style_text_font(_note_icon, &lv_font_montserrat_20, 0);
-    lv_obj_set_pos(_note_icon, 40, 40);
-
-    _musicPhase = 0;
-}
-
-// ============================================================
 //  _setEyeOpenness() — Redimensionne les yeux en hauteur
 //  scale : 0.0 = fermé, 1.0 = normal, 1.15 = agrandi
 // ============================================================
@@ -664,46 +580,4 @@ void FaceRenderer::_updateScanRing(uint32_t delta_ms) {
     float t = sinf((float)_elapsed / 1200.0f * 2.0f * 3.14159f);
     lv_opa_t opa = (lv_opa_t)(130 + (int)(t * 70.0f));
     lv_obj_set_style_border_opa(_scan_ring, opa, 0);
-}
-
-// ============================================================
-//  _updateMusiqueAnim() — Animation des barres et balancement
-// ============================================================
-void FaceRenderer::_updateMusiqueAnim(uint32_t delta_ms) {
-    _musicPhase += delta_ms;
-
-    // Animation de la note de musique (flotte avec un mouvement circulaire/vertical)
-    if (_note_icon) {
-        float tNote = sinf((float)_musicPhase / 1000.0f * 2.0f * 3.14159f);
-        int16_t yOff = (int16_t)(tNote * 15.0f);
-        lv_obj_set_pos(_note_icon, 40, 40 + yOff);
-    }
-
-    // Animation de l'égaliseur (4 barres avec phases différentes)
-    int baseY = MOUTH_Y + 30; // Doit correspondre à baseY de _applyMusique
-
-    if (_deco_1) { // Bar 1
-        float t1 = sinf((float)_musicPhase / 200.0f * 2.0f * 3.14159f);
-        int h1 = 10 + (int)(fabsf(t1) * 20.0f);
-        lv_obj_set_size(_deco_1, 12, h1);
-        lv_obj_set_y(_deco_1, baseY - h1);
-    }
-    if (_deco_2) { // Bar 2
-        float t2 = sinf((float)(_musicPhase + 150) / 250.0f * 2.0f * 3.14159f);
-        int h2 = 10 + (int)(fabsf(t2) * 25.0f);
-        lv_obj_set_size(_deco_2, 12, h2);
-        lv_obj_set_y(_deco_2, baseY - h2);
-    }
-    if (_bar3) { // Bar 3
-        float t3 = sinf((float)(_musicPhase + 300) / 220.0f * 2.0f * 3.14159f);
-        int h3 = 10 + (int)(fabsf(t3) * 30.0f);
-        lv_obj_set_size(_bar3, 12, h3);
-        lv_obj_set_y(_bar3, baseY - h3);
-    }
-    if (_bar4) { // Bar 4
-        float t4 = sinf((float)(_musicPhase + 450) / 180.0f * 2.0f * 3.14159f);
-        int h4 = 10 + (int)(fabsf(t4) * 20.0f);
-        lv_obj_set_size(_bar4, 12, h4);
-        lv_obj_set_y(_bar4, baseY - h4);
-    }
 }

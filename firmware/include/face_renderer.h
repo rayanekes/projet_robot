@@ -21,8 +21,7 @@ enum class FaceEmotion : uint8_t {
     ECOUTE    = 1,   // Vert, yeux agrandis, anneau pulsant
     REFLEXION = 2,   // Magenta, yeux asymétriques, "?" flottant
     PARLE     = 3,   // Vert menthe, bouche animée sync audio
-    ERREUR    = 4,   // Rouge, yeux en X, bouche inversée
-    MUSIQUE   = 5    // Bleu ciel, animations musicales (notes/égaliseur)
+    ERREUR    = 4    // Rouge, yeux en X, bouche inversée
 };
 
 // --- Paramètres d'animation fine ---
@@ -101,7 +100,6 @@ private:
     uint32_t    _blinkStart   = 0;
     uint32_t    _elapsed      = 0;
     uint32_t    _questionPhase= 0;      // Phase animation "?" en REFLEXION
-    uint32_t    _musicPhase   = 0;      // Phase animation musique
 
     // ---- Objets LVGL ----
     lv_obj_t* _screen         = nullptr;
@@ -127,9 +125,6 @@ private:
     lv_obj_t* _deco_1         = nullptr;  // "?" label / anneau / X gauche / bar 1
     lv_obj_t* _deco_2         = nullptr;  // point "." / anneau2 / X droit / bar 2
     lv_obj_t* _scan_ring      = nullptr;  // Anneau ECOUTE
-    lv_obj_t* _bar3           = nullptr;  // bar 3 (musique)
-    lv_obj_t* _bar4           = nullptr;  // bar 4 (musique)
-    lv_obj_t* _note_icon      = nullptr;  // icône note musique
 
     // ---- Méthodes privées ----
     void _buildBaseObjects();
@@ -139,7 +134,6 @@ private:
     void _applyReflexion(bool animated);
     void _applyParle(bool animated);
     void _applyErreur(bool animated);
-    void _applyMusique(bool animated);
 
     void _setEyeOpenness(float left, float right, bool animated);
     void _setMouthOpen(float openness);
@@ -147,7 +141,6 @@ private:
     void _updateAudioMouth(uint32_t delta_ms);
     void _updateReflexionAnim(uint32_t delta_ms);
     void _updateScanRing(uint32_t delta_ms);
-    void _updateMusiqueAnim(uint32_t delta_ms);
     void _setObjectColor(lv_obj_t* obj, lv_color_t color, bool animated);
 
     // Helpers couleur
@@ -156,7 +149,6 @@ private:
     static lv_color_t _colorReflexion() { return lv_color_hex(0xFF32FF); } // Magenta
     static lv_color_t _colorParle()     { return lv_color_hex(0x00FF9F); } // Vert menthe
     static lv_color_t _colorErreur()    { return lv_color_hex(0xFF2020); } // Rouge
-    static lv_color_t _colorMusique()   { return lv_color_hex(0x87CEFA); } // Bleu ciel
     static lv_color_t _colorBg()        { return lv_color_hex(0x000000); } // Fond Noir pur
 
     static const uint16_t SCR_W = 320;
