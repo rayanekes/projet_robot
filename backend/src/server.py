@@ -15,9 +15,9 @@ from llama_cpp import Llama
 from typing import Optional, List, Dict, Any
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODELS_DIR = os.path.expanduser("~/projet_robot/models")
-PIPER_BIN = "/home/rayane/tts_env/bin/piper"
-PIPER_MODEL = os.path.join(BASE_DIR, "piper", "fr_FR-siwis-medium.onnx")
+MODELS_DIR = os.getenv("MODELS_DIR", os.path.expanduser("~/projet_robot/models"))
+PIPER_BIN = os.getenv("PIPER_BIN", "/home/rayane/tts_env/bin/piper")
+PIPER_MODEL = os.getenv("PIPER_MODEL", os.path.join(BASE_DIR, "piper", "fr_FR-siwis-medium.onnx"))
 
 SAMPLE_RATE_MIC = 16000
 SAMPLE_RATE_TTS = 22050
@@ -54,13 +54,25 @@ def load_models():
     n_layers = -1
     try:
         free_vram, total_vram = torch.cuda.mem_get_info()
-        MODEL_VRAM_MB = 4500
+        free_vram_mb = free_vram / (1024 * 1024)
+        MODEL_VRAM_MB = 4800  # Modèle Qwen 7B estimé à ~4.8GB en réalité
         SAFETY_MARGIN_MB = 400
-        if free_vram < (MODEL_VRAM_MB + SAFETY_MARGIN_MB) * 1024 * 1024:
-            n_layers = 20
+        LAYER_SIZE_MB = 140 # Estimation de la taille d'une couche pour Qwen2.5 7B en q4_k_m
+
+        if free_vram_mb < (MODEL_VRAM_MB + SAFETY_MARGIN_MB):
+            available_for_model = free_vram_mb - SAFETY_MARGIN_MB
+            if available_for_model > 0:
+                n_layers = int(available_for_model / LAYER_SIZE_MB)
+                # S'assurer qu'on ne dépasse pas le nombre total de couches (~28 pour un 7B)
+                n_layers = min(n_layers, 28)
+            else:
+                n_layers = 0
             print(f"⚠️ VRAM faible, offload partiel: {n_layers} layers")
-        print(f"✅ LLaMA config: n_gpu_layers={n_layers} (VRAM libre: {free_vram/1024**2:.0f}MB)")
-    except:
+        else:
+            print(f"✅ VRAM suffisante pour un offload total.")
+        print(f"✅ LLaMA config: n_gpu_layers={n_layers} (VRAM libre: {free_vram_mb:.0f}MB)")
+    except Exception as e:
+        print(f"⚠️ Erreur lors de la détection de la VRAM: {e}")
         n_layers = 0
 
     llm = Llama(model_path=LLM_MODEL_PATH, n_gpu_layers=n_layers, n_ctx=4096, verbose=False, use_mmap=True)
