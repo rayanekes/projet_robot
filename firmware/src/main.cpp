@@ -33,7 +33,7 @@ QueueHandle_t audioTxQueue;
 QueueHandle_t audioRxQueue;
 
 enum SystemState { SPOTIFY_UI, BACKGROUND_MP3, ONLINE_AI };
-volatile SystemState currentState = SPOTIFY_UI; // Démarre sur l'UI Spotify
+volatile SystemState currentState = ONLINE_AI; // Démarre sur l'UI Spotify
 bool isMp3ModeInitialized = false;
 bool isSpotifyUiInitialized = false;
 bool isFaceInitialized = false;
@@ -138,7 +138,7 @@ void orchestratorTask(void *pvParameters) {
                 String title = doc["title"] | "";
                 if (title != "") search_and_play(title);
             } else if (cmd == "start_mp3") {
-                currentState = SPOTIFY_UI;
+                currentState = BACKGROUND_MP3;
             } else if (cmd == "stop_mp3") {
                 if (isMp3ModeInitialized) {
                     mp3Player->stop();
@@ -270,7 +270,7 @@ void displayTask(void *pvParameters) {
     display->init();
     lv_init();
     
-    spotifyUi = new GuiSpotify();
+    // spotifyUi = new GuiSpotify();
     face = new FaceRenderer();
     
     // Configuration du tactile
@@ -279,9 +279,9 @@ void displayTask(void *pvParameters) {
     
     // On démarre dans l'état configuré au boot (SPOTIFY_UI)
     SystemState lastState = currentState;
-    spotifyUi->init(display->getTftPointer());
-    spotifyUi->buildInterface();
-    isSpotifyUiInitialized = true;
+    // spotifyUi->init(display->getTftPointer());
+    // spotifyUi->buildInterface();
+    isSpotifyUiInitialized = false;
 
     uint32_t lastTick = millis();
     unsigned long lastBlink = millis();
@@ -304,7 +304,7 @@ void displayTask(void *pvParameters) {
             // Désallocation de l'ancien état
             if (lastState == SPOTIFY_UI) {
                 if (isSpotifyUiInitialized) {
-                    spotifyUi->deinit();
+                    // spotifyUi->deinit();
                     isSpotifyUiInitialized = false;
                 }
             } else if (lastState == ONLINE_AI || lastState == BACKGROUND_MP3) {
@@ -319,8 +319,8 @@ void displayTask(void *pvParameters) {
                 if (spk_ready.load()) { audio->uninstallSpeaker(); spk_ready.store(false); }
                 digitalWrite(MAX_SD_MODE_PIN, LOW); // Mute HP IA
                 if (!isSpotifyUiInitialized) {
-                    spotifyUi->init(display->getTftPointer());
-                    spotifyUi->buildInterface();
+                    // spotifyUi->init(display->getTftPointer());
+                    // spotifyUi->buildInterface();
                     isSpotifyUiInitialized = true;
                 }
                 if (!isMp3ModeInitialized) { mp3Player->init(); isMp3ModeInitialized = true; }
@@ -375,7 +375,7 @@ void displayTask(void *pvParameters) {
             vTaskDelay(500 / portTICK_PERIOD_MS); // Anti-rebond et temps pour laisser l'I2S respirer
         } else if (currentState == ONLINE_AI && touched) {
             Serial.println("[TACTILE] Ouverture Spotify demandée !");
-            currentState = SPOTIFY_UI;
+            // currentState = SPOTIFY_UI;
             vTaskDelay(500 / portTICK_PERIOD_MS);
         }
 
@@ -383,10 +383,11 @@ void displayTask(void *pvParameters) {
             if (isMp3ModeInitialized) {
                 mp3Player->loop();
                 if (mp3Player->isPlaying()) {
-                    spotifyUi->updateProgress(mp3Player->getAudioCurrentTime(), mp3Player->getAudioFileDuration());
+                    // spotifyUi->updateProgress(mp3Player->getAudioCurrentTime(), mp3Player->getAudioFileDuration());
                 }
             }
 
+            /*
             if (spotifyUi->isQuitBtnClicked) {
                 spotifyUi->isQuitBtnClicked = false;
                 currentState = ONLINE_AI;
@@ -398,6 +399,7 @@ void displayTask(void *pvParameters) {
                     spotifyUi->togglePlayPauseIcon(mp3Player->isPlaying());
                 }
             }
+            */
 
             lv_tick_inc(delta > 50 ? 16 : delta);
             lv_task_handler();

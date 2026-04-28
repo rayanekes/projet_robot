@@ -13,6 +13,7 @@ void Network_WS::initWiFi(const char* ssid, const char* password) {
     Serial.print("Connexion au Wi-Fi ");
     Serial.println(ssid);
     // [Correction] Amorcer la connexion sans bloquer infiniment avec un "while"
+    WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
 }
 
