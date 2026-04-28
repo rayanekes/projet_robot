@@ -22,7 +22,7 @@ from collections import deque
 # CONFIGURATION
 # =========================
 # Le dossier des modèles lourds est mutualisé à l'extérieur du dépôt Git pour éviter la duplication
-MODELS_DIR = os.path.expanduser("~/projet_robot/models")
+MODELS_DIR = os.getenv("MODELS_DIR", os.path.join(BASE_DIR, "models"))
 INPUT_WAV = os.path.join(BASE_DIR, "test_input.wav")
 
 SAMPLE_RATE_MIC = 16000
