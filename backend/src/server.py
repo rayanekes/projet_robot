@@ -18,6 +18,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS_DIR = os.getenv("MODELS_DIR", os.path.join(BASE_DIR, "models"))
 PIPER_BIN = os.getenv("PIPER_BIN", "/home/rayane/tts_env/bin/piper")
 PIPER_MODEL = os.getenv("PIPER_MODEL", os.path.join(BASE_DIR, "piper", "fr_FR-siwis-medium.onnx"))
+TTS_ENGINE = os.getenv("TTS_ENGINE", "piper")  # "piper" ou "xtts"
 
 SAMPLE_RATE_MIC = 16000
 SAMPLE_RATE_TTS = 22050
@@ -45,15 +46,28 @@ def load_models():
     vad = load_silero_vad()
     print("✅ Silero VAD chargé")
     
-    # 2. Whisper
+    # 2. Whisper (avec support multilingue: Darija, Français, Anglais)
     try:
         whisper = WhisperModel(WHISPER_MODEL, device=WHISPER_DEVICE, compute_type="int8_float16")
         print("✅ Whisper chargé (GPU - Optimisé VRAM)")
+        print("   Langues supportées: Darija (ar-DZ), Français, Anglais")
     except:
         whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
         print("⚠️ Whisper chargé (CPU)")
+        print("   Langues supportées: Darija (ar-DZ), Français, Anglais")
 
-    # 3. LLaMA (Calcul dynamique VRAM - OPT-007)
+    # 3. TTS Engine selection
+    tts_engine = None
+    if TTS_ENGINE.lower() == "xtts":
+        try:
+            from TTS.api import TTS
+            tts_engine = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", gpu=True)
+            print("✅ XTTS v2 chargé (GPU - Multilingual TTS)")
+        except:
+            print("⚠️ XTTS non disponible, fallback sur Piper")
+            tts_engine = None
+    
+    # 4. LLaMA (Calcul dynamique VRAM - OPT-007)
     n_layers = -1
     try:
         free_vram, total_vram = torch.cuda.mem_get_info()
@@ -81,9 +95,9 @@ def load_models():
     llm = Llama(model_path=LLM_MODEL_PATH, n_gpu_layers=n_layers, n_ctx=4096, verbose=False, use_mmap=True)
     print("✅ LLaMA chargé")
     
-    return vad, whisper, llm
+    return vad, whisper, llm, tts_engine
 
-vad_model, whisper, llm = load_models()
+vad_model, whisper, llm, tts_engine = load_models()
 
 # =========================
 # CLASSE SESSION ROBOT
@@ -104,12 +118,22 @@ class RobotSession:
         self.calibrated = False
         self.calib_count = 0
         self.calib_samples = [] # OPT-003
+        self.detected_language = "fr"  # Langue détectée par Whisper (FIX-013)
 
     def _get_system_prompt(self) -> str:
         return (
-            "Tu es un robot assistant d'ingénierie. Réponds TOUJOURS en français pur, sans chichi. "
-            "Utilise \"command\": \"none\" et choisis une émotion (neutre, ecoute, reflexion, parle, erreur). "
-            "Réponds STRICTEMENT au format JSON."
+            "Tu es un robot assistant d'ingénierie intelligent et fluide. "
+            "RÈGLES STRICTES:\n"
+            "1. Réponds TOUJOURS EN FRANÇAIS PUR, sans chichi, sans code-switching\n"
+            "2. Si l'utilisateur parle en Darija marocain, tu comprends et réponds en FRANÇAIS CLASSIQUE\n"
+            "3. Format JSON OBLIGATOIRE:\n"
+            "{\n"
+            "  \"speech\": \"ta réponse en français\",\n"
+            "  \"emotion\": \"neutre|ecoute|reflexion|parle|erreur\",\n"
+            "  \"command\": \"none|play_music|stop|adjust_volume\"\n"
+            "}\n"
+            "4. La clé 'speech' contient UNIQUEMENT le texte à synthétiser\n"
+            "5. Sois concis, direct, sans explications techniques inutiles"
         )
 
     async def send_json(self, key: str, value: Any):
@@ -148,11 +172,19 @@ async def handle_esp32_connection(websocket):
     session = RobotSession(websocket)
     extractor = JSONSpeechExtractor()
 
-    async def run_llm_and_tts(text: str):
+    async def run_llm_and_tts(text: str, detected_lang: str = "fr"):
         session.robot_is_answering = True
         session.interrupt_flag = False
+        session.detected_language = detected_lang
         try: # FIX-009: Robustesse par try/finally
-            session.history.append({"role": "user", "content": text})
+            # Ajouter le contexte de langue détectée (FIX-013)
+            context_text = text
+            if detected_lang == "ar":
+                context_text = f"[Utilisateur en Darija] {text}"
+            elif detected_lang == "en":
+                context_text = f"[Utilisateur en Anglais - Réponds en FRANÇAIS] {text}"
+            
+            session.history.append({"role": "user", "content": context_text})
             session.trim_history()
             await session.send_json("status", "thinking")
             
@@ -167,45 +199,94 @@ async def handle_esp32_connection(websocket):
             pacing = chunk_duration * 0.95
 
             async with llm_lock:
-                proc = await asyncio.create_subprocess_exec(
-                    PIPER_BIN, "--model", PIPER_MODEL, "--output_raw",
-                    stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
-                )
-
-                async def pipe_out():
-                    try:
-                        start_time = time.time()
-                        total_sent = 0
-                        while True:
-                            data = await proc.stdout.read(SMALL_CHUNK)
-                            if not data or session.interrupt_flag: break
-
-                            await session.ws.send(data)
-                            total_sent += len(data)
-
-                            # Temps théorique où on devrait être
-                            target_time = start_time + (total_sent / BYTES_PER_SAMPLE / SAMPLE_RATE_TTS) * 0.95
-                            now = time.time()
-                            if target_time > now:
-                                await asyncio.sleep(target_time - now)
-                    except: pass
-
-                out_task = asyncio.create_task(pipe_out())
-                await session.send_json("status", "speaking")
+                # Déterminer le moteur TTS à utiliser
+                use_xtts = (TTS_ENGINE.lower() == "xtts" and tts_engine is not None)
                 
-                gen = await asyncio.to_thread(llm.create_chat_completion, messages=session.history, stream=True)
-                full_resp = ""
-                sentence_buffer = ""
-                for chunk in gen:
-                    if session.interrupt_flag: break
-                    token = chunk["choices"][0].get("delta", {}).get("content", "")
-                    full_resp += token
-                    sentence_buffer += token
+                if use_xtts:
+                    # XTTS v2 path (FIX-013)
+                    await session.send_json("status", "speaking")
+                    gen = await asyncio.to_thread(llm.create_chat_completion, messages=session.history, stream=True)
+                    full_resp = ""
+                    for chunk in gen:
+                        if session.interrupt_flag: break
+                        token = chunk["choices"][0].get("delta", {}).get("content", "")
+                        full_resp += token
                     
-                    if any(p in token for p in ".!?"):
-                        proc.stdin.write(sentence_buffer.replace('\\n',' ').encode())
-                        await proc.stdin.drain()
-                        sentence_buffer = ""
+                    # Extraire le texte JSON
+                    try:
+                        json_match = re.search(r'\{.*\}', full_resp, re.DOTALL)
+                        if json_match:
+                            parsed = json.loads(json_match.group())
+                            speech_text = parsed.get("speech", "").strip()
+                            if speech_text and not session.interrupt_flag:
+                                print(f"🔊 [XTTS] Synthèse: {speech_text[:50]}...")
+                                # Générer audio avec XTTS (pas d'envoi streaming, on envoie après)
+                                audio = await asyncio.to_thread(
+                                    tts_engine.tts,
+                                    speech_text,
+                                    speaker_wav=None,
+                                    language="fr"
+                                )
+                                # Envoyer l'audio par chunks
+                                if audio is not None:
+                                    audio_bytes = (np.array(audio) * 32767).astype(np.int16).tobytes()
+                                    for i in range(0, len(audio_bytes), SMALL_CHUNK):
+                                        chunk_data = audio_bytes[i:i+SMALL_CHUNK]
+                                        await session.ws.send(chunk_data)
+                                        await asyncio.sleep(pacing)
+                    except Exception as e:
+                        print(f"❌ [XTTS] Erreur: {e}")
+                else:
+                    # Piper path (original)
+                    proc = await asyncio.create_subprocess_exec(
+                        PIPER_BIN, "--model", PIPER_MODEL, "--output_raw",
+                        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
+                    )
+
+                    async def pipe_out():
+                        try:
+                            start_time = time.time()
+                            total_sent = 0
+                            while True:
+                                data = await proc.stdout.read(SMALL_CHUNK)
+                                if not data or session.interrupt_flag: break
+
+                                await session.ws.send(data)
+                                total_sent += len(data)
+
+                                # Temps théorique où on devrait être
+                                target_time = start_time + (total_sent / BYTES_PER_SAMPLE / SAMPLE_RATE_TTS) * 0.95
+                                now = time.time()
+                                if target_time > now:
+                                    await asyncio.sleep(target_time - now)
+                        except: pass
+
+                    out_task = asyncio.create_task(pipe_out())
+                    await session.send_json("status", "speaking")
+                    
+                    gen = await asyncio.to_thread(llm.create_chat_completion, messages=session.history, stream=True)
+                    full_resp = ""
+                    sentence_buffer = ""
+                    for chunk in gen:
+                        if session.interrupt_flag: break
+                        token = chunk["choices"][0].get("delta", {}).get("content", "")
+                        full_resp += token
+                        sentence_buffer += token
+                        
+                        if any(p in token for p in ".!?"):
+                            proc.stdin.write(sentence_buffer.replace('\\n',' ').encode())
+                            await proc.stdin.drain()
+                            sentence_buffer = ""
+
+                    if sentence_buffer.strip() and not session.interrupt_flag:
+                        proc.stdin.write(sentence_buffer.encode()); await proc.stdin.drain()
+                    
+                    # FIX-010: Nettoyage Piper
+                    proc.stdin.close()
+                    out_task.cancel()
+                    try: await out_task
+                    except asyncio.CancelledError: pass
+                    await proc.wait()
 
                 # OPT-005: Extraire emotion, command et title dès la fin du flux
                 try:
@@ -218,16 +299,6 @@ async def handle_esp32_connection(websocket):
                             if 'title' in parsed: await session.send_json('play_title', parsed['title'])
                 except: pass
 
-                if sentence_buffer.strip() and not session.interrupt_flag:
-                    proc.stdin.write(sentence_buffer.encode()); await proc.stdin.drain()
-                
-                # FIX-010: Nettoyage Piper
-                proc.stdin.close()
-                out_task.cancel()
-                try: await out_task
-                except asyncio.CancelledError: pass
-                await proc.wait()
-
             if full_resp and not session.interrupt_flag:
                 session.history.append({"role": "assistant", "content": full_resp})
         except Exception as e:
@@ -238,23 +309,28 @@ async def handle_esp32_connection(websocket):
             await session.send_json("status", "idle")
 
     async def process_whisper(audio_data):
-        """Traite Whisper de manière asynchrone sans bloquer la boucle principale (FIX-011)"""
+        """Traite Whisper de manière asynchrone sans bloquer la boucle principale (FIX-011)
+           Avec support multilingue (Darija, Français, Anglais) (FIX-013)
+        """
         try:
             def run_whisper():
-                # Use translate task without forcing language. This allows Whisper to detect
-                # languages like Arabic/Darija, translate them to English, and pass to LLM.
-                segs, _ = whisper.transcribe(audio_data, task="translate", beam_size=5, vad_filter=True)
-                return "".join([s.text for s in segs]).strip()
+                # Whisper détecte automatiquement: Darija (ar), Français (fr), Anglais (en)
+                # Task="translate" envoie tout vers Anglais, mais on log la détection
+                segs, info = whisper.transcribe(audio_data, task="translate", beam_size=5, vad_filter=True)
+                text = "".join([s.text for s in segs]).strip()
+                detected_lang = info.get("language", "fr")  # Langue détectée
+                return text, detected_lang
             
             # Exécute Whisper dans un thread séparé avec timeout (30s max)
-            text = await asyncio.wait_for(
+            text, detected_lang = await asyncio.wait_for(
                 asyncio.to_thread(run_whisper, executor=whisper_executor),
                 timeout=30.0
             )
             
             if text:
-                print(f"📝 [WHISPER] {text}")
-                await run_llm_and_tts(text)
+                lang_display = {"ar": "🇲🇦 Darija", "en": "🇬🇧 English", "fr": "🇫🇷 Français"}.get(detected_lang, detected_lang)
+                print(f"📝 [WHISPER] {lang_display}: {text}")
+                await run_llm_and_tts(text, detected_lang=detected_lang)
         except asyncio.TimeoutError:
             print("⏱️ [WHISPER] Timeout (>30s)")
         except Exception as e:
@@ -310,8 +386,12 @@ async def handle_esp32_connection(websocket):
 async def main():
     # FIX-002: Désactiver ping_interval/timeout pour éviter les fermetures prématurées
     # Nous ajoutons aussi un buffer plus large pour mieux absorber les légers pics réseau
+    print(f"\n🚀 [SERVEUR] Configuration:")
+    print(f"   TTS Engine: {TTS_ENGINE.upper()}")
+    print(f"   Whisper Model: {WHISPER_MODEL} ({WHISPER_DEVICE})")
+    print(f"   LLM: Qwen2.5-7B (Multilingual)")
     async with websockets.serve(handle_esp32_connection, "0.0.0.0", 8765, ping_interval=None, ping_timeout=None, max_size=2**20, write_limit=2**20):
-        print("\n🚀 [SERVEUR] Prêt ! Port 8765")
+        print("🚀 [SERVEUR] Prêt ! Port 8765\n")
         await asyncio.Future()
 
 if __name__ == "__main__":
