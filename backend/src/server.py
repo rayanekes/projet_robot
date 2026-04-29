@@ -27,6 +27,9 @@ AUDIO_CHUNK_SIZE_OUT = 4096
 # Verrou LLM pour la thread-safety (FIX-008)
 llm_lock = asyncio.Lock()
 
+# Thread pool executor pour Whisper (FIX-011)
+whisper_executor = asyncio.ThreadPoolExecutor(max_workers=1)
+
 # =========================
 # INITIALISATION ML
 # =========================
@@ -234,6 +237,29 @@ async def handle_esp32_connection(websocket):
             session.robot_is_answering = False
             await session.send_json("status", "idle")
 
+    async def process_whisper(audio_data):
+        """Traite Whisper de manière asynchrone sans bloquer la boucle principale (FIX-011)"""
+        try:
+            def run_whisper():
+                # Use translate task without forcing language. This allows Whisper to detect
+                # languages like Arabic/Darija, translate them to English, and pass to LLM.
+                segs, _ = whisper.transcribe(audio_data, task="translate", beam_size=5, vad_filter=True)
+                return "".join([s.text for s in segs]).strip()
+            
+            # Exécute Whisper dans un thread séparé avec timeout (30s max)
+            text = await asyncio.wait_for(
+                asyncio.to_thread(run_whisper, executor=whisper_executor),
+                timeout=30.0
+            )
+            
+            if text:
+                print(f"📝 [WHISPER] {text}")
+                await run_llm_and_tts(text)
+        except asyncio.TimeoutError:
+            print("⏱️ [WHISPER] Timeout (>30s)")
+        except Exception as e:
+            print(f"❌ [WHISPER] Erreur: {e}")
+
     try:
         async for msg in websocket:
             if not isinstance(msg, bytes): continue
@@ -268,16 +294,12 @@ async def handle_esp32_connection(websocket):
                 if session.silence_frames > 20 or (time.time() - session.recording_start_time > 30):
                     session.is_speaking = False
                     audio_data = np.concatenate(session.audio_buffer).astype(np.float32) / 32768.0
-                    def run_whisper():
-                        # Use translate task without forcing language. This allows Whisper to detect
-                        # languages like Arabic/Darija, translate them to English, and pass to LLM.
-                        segs, _ = whisper.transcribe(audio_data, task="translate", beam_size=5, vad_filter=True)
-                        return "".join([s.text for s in segs]).strip()
-                    text = await asyncio.to_thread(run_whisper)
-                    if text: 
-                        print(f"📝 [WHISPER] {text}")
-                        asyncio.create_task(run_llm_and_tts(text))
-                    session.audio_buffer = []; session.silence_frames = 0
+                    
+                    # FIX-011: Lancer Whisper en arrière-plan sans bloquer la boucle principale
+                    asyncio.create_task(process_whisper(audio_data))
+                    
+                    session.audio_buffer = []
+                    session.silence_frames = 0
     except websockets.exceptions.ConnectionClosed as e:
         print(f"⚠️ [SERVEUR] ESP32 déconnecté (Code {e.code})")
     except Exception as e:
