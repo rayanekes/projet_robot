@@ -70,6 +70,7 @@ void networkTask(void *pvParameters) {
   
   bool connected = false;
   Serial.println("Recherche Wi-Fi...");
+  WiFi.mode(WIFI_STA); // Save SRAM by disabling AP mode
   WiFi.begin(WIFI_SSID_HOTSPOT, WIFI_PASS_HOTSPOT); 
   WiFi.config(ip_h, gate_h, sub);
   
