@@ -42,6 +42,55 @@ struct FaceConfig {
     uint16_t cheek_blink_alpha  = 110;   // Opacité des joues (0-255)
 };
 
+// --- Interpolation Helper ---
+struct SmoothValue {
+    float current = 0.0f;
+    float target = 0.0f;
+    void update(float alpha) { current += alpha * (target - current); }
+    void set(float val) { target = val; }
+    void snap(float val) { target = val; current = val; }
+};
+
+struct SmoothColor {
+    float r_curr = 0, g_curr = 0, b_curr = 0;
+    float r_targ = 0, g_targ = 0, b_targ = 0;
+    void update(float alpha) {
+        r_curr += alpha * (r_targ - r_curr);
+        g_curr += alpha * (g_targ - g_curr);
+        b_curr += alpha * (b_targ - b_curr);
+    }
+    void set(uint32_t hex24) {
+        r_targ = (float)((hex24 >> 16) & 0xFF);
+        g_targ = (float)((hex24 >> 8) & 0xFF);
+        b_targ = (float)(hex24 & 0xFF);
+    }
+    void snap(uint32_t hex24) {
+        set(hex24);
+        r_curr = r_targ; g_curr = g_targ; b_curr = b_targ;
+    }
+    lv_color_t get() const {
+        return lv_color_make((uint8_t)r_curr, (uint8_t)g_curr, (uint8_t)b_curr);
+    }
+};
+
+struct ElementState {
+    SmoothValue w, h, x, y, opa, radius;
+    SmoothColor color;
+};
+
+struct FaceState {
+    ElementState eye_l;
+    ElementState eye_r;
+    ElementState pupil_l;
+    ElementState pupil_r;
+    ElementState shine_l;
+    ElementState shine_r;
+    ElementState mouth_outer;
+    ElementState mouth_inner;
+    ElementState cheek_l;
+    ElementState cheek_r;
+};
+
 // ============================================================
 //  Classe principale
 // ============================================================
@@ -100,6 +149,12 @@ private:
     uint32_t    _blinkStart   = 0;
     uint32_t    _elapsed      = 0;
     uint32_t    _questionPhase= 0;      // Phase animation "?" en REFLEXION
+    float       _breathPhase  = 0.0f;   // Animation de respiration
+    float       _lookX        = 0.0f;   // Mouvement des yeux
+    float       _lookY        = 0.0f;
+    uint32_t    _lastLookTime = 0;
+
+    FaceState   _state;                 // État interpolé
 
     // ---- Objets LVGL ----
     lv_obj_t* _screen         = nullptr;
@@ -144,11 +199,17 @@ private:
     void _setObjectColor(lv_obj_t* obj, lv_color_t color, bool animated);
 
     // Helpers couleur
-    static lv_color_t _colorNeutre()    { return lv_color_hex(0x00FFFF); } // Cyan
-    static lv_color_t _colorEcoute()    { return lv_color_hex(0x00FF64); } // Vert
-    static lv_color_t _colorReflexion() { return lv_color_hex(0xFF32FF); } // Magenta
-    static lv_color_t _colorParle()     { return lv_color_hex(0x00FF9F); } // Vert menthe
-    static lv_color_t _colorErreur()    { return lv_color_hex(0xFF2020); } // Rouge
+    static uint32_t _colorNeutreHex()    { return 0x00FFFF; } // Cyan
+    static uint32_t _colorEcouteHex()    { return 0x00FF64; } // Vert
+    static uint32_t _colorReflexionHex() { return 0xFF32FF; } // Magenta
+    static uint32_t _colorParleHex()     { return 0x00FF9F; } // Vert menthe
+    static uint32_t _colorErreurHex()    { return 0xFF2020; } // Rouge
+
+    static lv_color_t _colorNeutre()    { return lv_color_hex(_colorNeutreHex()); }
+    static lv_color_t _colorEcoute()    { return lv_color_hex(_colorEcouteHex()); }
+    static lv_color_t _colorReflexion() { return lv_color_hex(_colorReflexionHex()); }
+    static lv_color_t _colorParle()     { return lv_color_hex(_colorParleHex()); }
+    static lv_color_t _colorErreur()    { return lv_color_hex(_colorErreurHex()); }
     static lv_color_t _colorBg()        { return lv_color_hex(0x000000); } // Fond Noir pur
 
     static const uint16_t SCR_W = 320;
