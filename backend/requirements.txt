@@ -7,4 +7,6 @@ torch==2.2.1
 scipy==1.12.0
 sounddevice==0.4.6
 Pillow==10.2.0
+# TTS Options: piper-tts OU xtts (choose one or both)
 piper-tts==1.4.2
+xtts-v2==0.3.0
