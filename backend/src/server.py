@@ -15,7 +15,7 @@ from llama_cpp import Llama
 from typing import Optional, List, Dict, Any
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODELS_DIR = os.getenv("MODELS_DIR", os.path.expanduser("~/projet_robot/models"))
+MODELS_DIR = os.getenv("MODELS_DIR", os.path.join(BASE_DIR, "models"))
 PIPER_BIN = os.getenv("PIPER_BIN", "/home/rayane/tts_env/bin/piper")
 PIPER_MODEL = os.getenv("PIPER_MODEL", os.path.join(BASE_DIR, "piper", "fr_FR-siwis-medium.onnx"))
 
