@@ -323,7 +323,7 @@ async def handle_esp32_connection(websocket):
             
             # Exécute Whisper dans un thread séparé avec timeout (30s max)
             text, detected_lang = await asyncio.wait_for(
-                asyncio.to_thread(run_whisper, executor=whisper_executor),
+                asyncio.get_running_loop().run_in_executor(whisper_executor, run_whisper),
                 timeout=30.0
             )
             

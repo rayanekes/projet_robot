@@ -49,11 +49,10 @@ void debugTask(void *pvParameters) {
 }
 
 void orchestratorTask(void *pvParameters) {
-    char cmdBuf[128];
+    char cmdBuf[32];
     for(;;) {
         if (xQueueReceive(commandQueue, &cmdBuf, portMAX_DELAY) == pdPASS) {
-            StaticJsonDocument<256> doc;
-            deserializeJson(doc, cmdBuf);
+            String cmd = String(cmdBuf);
             // Plus de commandes spécifiques à la musique
         }
     }
@@ -225,7 +224,7 @@ void setup() {
     network = new Network_WS();
 
     emotionQueue = xQueueCreate(5, 32);
-    commandQueue = xQueueCreate(10, 128);
+    commandQueue = xQueueCreate(10, 32);
     audioTxQueue = xQueueCreate(10, sizeof(AudioChunk));
     audioRxQueue = xQueueCreate(10, sizeof(AudioChunk));
 
