@@ -8,7 +8,7 @@
 .venv/
 tts_env/
 
-# Modèles IA et Poids (Large files)
+# Modèles IA et Poids (Large files > 10MB)
 **/models/
 **/*.gguf
 **/*.onnx
@@ -23,10 +23,6 @@ backend/piper/
 **/*.a
 **/*.o
 **/*.d
-
-# Logs
-**/*.log
-backend/logs/
 
 # Divers
 .aider*
