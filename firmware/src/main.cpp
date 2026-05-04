@@ -71,13 +71,16 @@ void commandTask(void *pvParameters) {
     if (xQueueReceive(commandQueue, &cmd, 100) == pdPASS) {
       Serial.printf("[CMD] Traitement : %s\n", cmd);
 
-      // ── Volume (le serveur s'en charge, on log juste)
+      // ── Volume (le serveur s'en charge, mais l'ESP32 l'applique localement)
       if (strncmp(cmd, "cmd:vol:", 8) == 0) {
         const char* val = cmd + 8;
         if (val[0] == '+')      irVolume = min(100, irVolume + atoi(val+1));
         else if (val[0] == '-') irVolume = max(0,   irVolume - atoi(val+1));
         else                    irVolume = max(0, min(100, atoi(val)));
         Serial.printf("[CMD] Volume local : %d%%\n", irVolume);
+        if (audio) {
+          audio->setVolume(irVolume);
+        }
       }
 
       // ── Luminosité écran via PWM
@@ -403,6 +406,11 @@ void setup() {
   display = new TFT_Display();
   audio = new Audio_I2S();
   network = new Network_WS();
+
+  // Initialiser le volume de l'ampli avec la valeur de départ
+  if (audio) {
+    audio->setVolume(irVolume);
+  }
 
   // Création des queues FreeRTOS — ESP32-S3 : queues agrandies (PSRAM 8Mo)
   emotionQueue = xQueueCreate(5, 32);                  // Émotions visage

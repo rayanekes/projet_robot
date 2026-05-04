@@ -1,9 +1,13 @@
 #include "audio_i2s.h"
 
+Audio_I2S::Audio_I2S() : _raw_buf(nullptr), _mic_handle(nullptr), _spk_handle(nullptr), _current_volume_scale(SPK_VOLUME_SCALE_8OHM) {
+    // Le volume par défaut est le scaling 8 ohms initial.
+}
+
 void Audio_I2S::initMic() {
   i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
   // Requis pour éviter de lire les anciens buffers (important pour le VAD/STT)
-  chan_cfg.auto_clear = true; 
+  chan_cfg.auto_clear = true;
 
   esp_err_t err = i2s_new_channel(&chan_cfg, &_mic_handle, NULL);
   if (err != ESP_OK) {
@@ -92,10 +96,8 @@ void Audio_I2S::initSpeaker() {
   }
 
   err = i2s_channel_enable(_spk_handle);
-  Serial.printf("[I2S-SPK] MAX98357A prêt (SR=%d Hz, BCLK=%d, WS=%d, DIN=%d, "
-                "Vol=%.0f%%) : %s\n",
-                SAMPLE_RATE_TTS, I2S_SPK_BCLK, I2S_SPK_WS, I2S_SPK_DIN,
-                SPK_VOLUME_SCALE_8OHM * 100.0f, esp_err_to_name(err));
+  Serial.printf("[I2S-SPK] MAX98357A prêt (SR=%d Hz, BCLK=%d, WS=%d, DIN=%d) : %s\n",
+                SAMPLE_RATE_TTS, I2S_SPK_BCLK, I2S_SPK_WS, I2S_SPK_DIN, esp_err_to_name(err));
 }
 
 void Audio_I2S::uninstallSpeaker() {
@@ -106,11 +108,18 @@ void Audio_I2S::uninstallSpeaker() {
   }
 }
 
+void Audio_I2S::setVolume(int percentage) {
+    _current_volume_scale = (float)percentage / 100.0f;
+    // Appliquer en plus la compensation 8Ω pour rester dans les limites du haut-parleur
+    _current_volume_scale *= SPK_VOLUME_SCALE_8OHM;
+    Serial.printf("[I2S-SPK] Volume réglé à %.1f%%\n", _current_volume_scale * 100.0f);
+}
+
+
 void Audio_I2S::writeSpeaker(const uint8_t *buffer, size_t bufferSize) {
   if (!_spk_handle || !buffer || bufferSize == 0)
     return;
 
-  // Scaling amplitude pour baffle 8Ω (évite le clipping/distorsion)
   // Buffer statique en DRAM pour éviter la fragmentation heap sur le Core 1
   static DRAM_ATTR int16_t scaled[512];
 
@@ -122,7 +131,8 @@ void Audio_I2S::writeSpeaker(const uint8_t *buffer, size_t bufferSize) {
     size_t chunk = (nTotal - offset < 512) ? (nTotal - offset) : 512;
 
     for (size_t i = 0; i < chunk; i++) {
-      int32_t s = (int32_t)(src[offset + i] * SPK_VOLUME_SCALE_8OHM);
+      // Appliquer le facteur de volume dynamique
+      int32_t s = (int32_t)(src[offset + i] * _current_volume_scale);
       // Clip pour éviter l'overflow int16
       scaled[i] = (int16_t)(s > 32767 ? 32767 : (s < -32768 ? -32768 : s));
     }

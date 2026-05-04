@@ -29,6 +29,7 @@
 
 class Audio_I2S {
 public:
+  Audio_I2S(); // Constructeur pour initialiser le volume
   void initMic();
   void uninstallMic();
   size_t readMic(int16_t *buffer, size_t bufferSize);
@@ -36,13 +37,16 @@ public:
   void initSpeaker();
   void uninstallSpeaker();
   // Joue le buffer PCM int16 mono 24kHz.
-  // Applique automatiquement SPK_VOLUME_SCALE_8OHM pour compenser le baffle 8Ω.
+  // Applique le facteur de volume actuel.
   void writeSpeaker(const uint8_t *buffer, size_t bufferSize);
+  // Définit le volume en pourcentage (0-100)
+  void setVolume(int percentage);
 
 private:
   int32_t *_raw_buf = nullptr;             // Buffer DMA mic INMP441
   i2s_chan_handle_t _mic_handle = nullptr; // Handle mic
   i2s_chan_handle_t _spk_handle = nullptr; // Handle speaker
+  float _current_volume_scale;             // Facteur de volume dynamique
 };
 
 #endif // AUDIO_I2S_H
