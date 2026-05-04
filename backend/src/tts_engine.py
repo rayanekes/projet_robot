@@ -69,15 +69,24 @@ class KokoroEngine:
         if not self.available:
             return
         try:
-            stream_gen = self.model.create_stream(
-                text,
-                voice=voice,
-                speed=speed,
-                lang="fr-fr"
-            )
-            async for samples, sample_rate in stream_gen:
+            # La génération de stream de Kokoro peut être CPU-intensive.
+            # L'exécuter dans un thread pour ne pas bloquer l'event loop.
+            def _kokoro_gen():
+                yield from self.model.create_stream(
+                    text,
+                    voice=voice,
+                    speed=speed,
+                    lang="fr-fr"
+                )
+
+            # Utiliser asyncio.to_thread pour les itérations du générateur
+            gen_iterator = await asyncio.to_thread(_kokoro_gen)
+
+            for samples, sample_rate in gen_iterator:
                 audio_pcm = (samples * 32767).clip(-32768, 32767).astype(np.int16)
                 yield audio_pcm.tobytes()
+                # Permettre à l'event loop de s'exécuter entre chaque yield
+                await asyncio.sleep(0)
         except Exception as e:
             logger.error(f"Erreur Kokoro stream : {e}")
 
