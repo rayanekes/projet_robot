@@ -1,7 +1,11 @@
 #include "audio_i2s.h"
 
-Audio_I2S::Audio_I2S() : _raw_buf(nullptr), _mic_handle(nullptr), _spk_handle(nullptr), _current_volume_scale(SPK_VOLUME_SCALE_8OHM) {
-    // Le volume par défaut est le scaling 8 ohms initial.
+Audio_I2S::Audio_I2S()
+    : _raw_buf(nullptr), _mic_handle(nullptr), _spk_handle(nullptr),
+      _current_volume_scale(SPK_VOLUME_SCALE_8OHM) {
+  // Le volume par défaut est le scaling 8 ohms initial.
+  // Initialisation explicite du buffer à zéro
+  memset(_scaled_speaker_buffer, 0, sizeof(_scaled_speaker_buffer));
 }
 
 void Audio_I2S::initMic() {
@@ -111,8 +115,10 @@ void Audio_I2S::uninstallSpeaker() {
 void Audio_I2S::setVolume(int percentage) {
     _current_volume_scale = (float)percentage / 100.0f;
     // Appliquer en plus la compensation 8Ω pour rester dans les limites du haut-parleur
-    _current_volume_scale *= SPK_VOLUME_SCALE_8OHM;
-    Serial.printf("[I2S-SPK] Volume réglé à %.1f%%\n", _current_volume_scale * 100.0f);
+    // (SPK_VOLUME_SCALE_8OHM est déjà dans l'initialisation du volume par défaut)
+    float new_scale = (float)percentage / 100.0f;
+    _current_volume_scale.store(new_scale * SPK_VOLUME_SCALE_8OHM); // Utilisation atomique
+    Serial.printf("[I2S-SPK] Volume réglé à %.1f%%\n", new_scale * 100.0f);
 }
 
 
@@ -120,8 +126,8 @@ void Audio_I2S::writeSpeaker(const uint8_t *buffer, size_t bufferSize) {
   if (!_spk_handle || !buffer || bufferSize == 0)
     return;
 
-  // Buffer statique en DRAM pour éviter la fragmentation heap sur le Core 1
-  static DRAM_ATTR int16_t scaled[512];
+  // Accéder au facteur de volume de manière atomique
+  float volume_scale = _current_volume_scale.load();
 
   const int16_t *src = (const int16_t *)buffer;
   const size_t nTotal = bufferSize / 2; // Nombre de samples int16
@@ -132,12 +138,12 @@ void Audio_I2S::writeSpeaker(const uint8_t *buffer, size_t bufferSize) {
 
     for (size_t i = 0; i < chunk; i++) {
       // Appliquer le facteur de volume dynamique
-      int32_t s = (int32_t)(src[offset + i] * _current_volume_scale);
+      int32_t s = (int32_t)(src[offset + i] * volume_scale);
       // Clip pour éviter l'overflow int16
-      scaled[i] = (int16_t)(s > 32767 ? 32767 : (s < -32768 ? -32768 : s));
+      _scaled_speaker_buffer[i] = (int16_t)(s > 32767 ? 32767 : (s < -32768 ? -32768 : s));
     }
 
-    i2s_channel_write(_spk_handle, scaled, chunk * 2, &written,
+    i2s_channel_write(_spk_handle, _scaled_speaker_buffer, chunk * 2, &written,
                       pdMS_TO_TICKS(200));
   }
 }

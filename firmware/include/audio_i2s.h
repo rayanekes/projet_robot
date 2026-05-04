@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <driver/i2s_std.h> // API nouvelle — utilisée pour le micro et le haut-parleur
+#include <atomic>           // Pour std::atomic (accès thread-safe)
 
 // --- Configuration du Microphone INMP441 (I2S_NUM_0 / Entrée) ---
 #define I2S_MIC_PORT I2S_NUM_0
@@ -46,7 +47,8 @@ private:
   int32_t *_raw_buf = nullptr;             // Buffer DMA mic INMP441
   i2s_chan_handle_t _mic_handle = nullptr; // Handle mic
   i2s_chan_handle_t _spk_handle = nullptr; // Handle speaker
-  float _current_volume_scale;             // Facteur de volume dynamique
+  std::atomic<float> _current_volume_scale; // Facteur de volume dynamique (thread-safe)
+  DRAM_ATTR int16_t _scaled_speaker_buffer[512]; // Buffer pour le scaling audio
 };
 
 #endif // AUDIO_I2S_H
