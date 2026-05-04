@@ -1,94 +1,106 @@
-# Projet Robot Assistant (ESP32 + Serveur AI)
+# 🤖 Projet Robot Assistant (ESP32-S3 + Serveur AI)
 
-Ce projet divise l'architecture du robot en deux parties principales :
-1. **Un Backend (Python) :** Serveur AI basé sur WebSocket avec traitement vocal (Whisper, Silero VAD), génération de texte (LLaMA) et synthèse vocale (Piper).
-2. **Un Firmware (C++) :** Code embarqué pour l'ESP32 contrôlant le microphone, le haut-parleur (I2S), un écran TFT (ST7789) et des GPIOs.
+[![GitHub License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-ESP32--S3-orange.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
+[![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://www.python.org/)
 
-## Structure du projet
+Un assistant robotique intelligent et conversationnel basé sur une architecture distribuée : un cerveau IA sur serveur Python et un corps réactif sur ESP32-S3.
 
-```
-├── backend/                  # Serveur d'intelligence artificielle
-│   ├── src/                  # Code source (ex: server.py)
-│   ├── models/               # Modèles LLM (à télécharger)
-│   ├── piper/                # Exécutable et modèles Piper TTS (à télécharger)
-│   ├── memory/               # Sauvegarde du contexte (RAG)
+---
+
+## 🌟 Fonctionnalités Clés
+
+- **🗣️ Conversation Naturelle** : Pipeline complet STT (Whisper) -> LLM (Qwen/Gemma) -> TTS (Piper/Kokoro).
+- **🚀 Ultra-Basse Latence** : Streaming audio full-duplex via WebSockets.
+- **🎭 Expressions Faciales** : Rendu fluide d'émotions sur écran TFT ST7789.
+- **🎮 Contrôle Infrarouge** : Pilotage des modes et personnalités via télécommande IR.
+- **🧠 Mémoire à Long Terme** : Système RAG pour une persistance des conversations.
+- **📡 Monitoring Distant** : Système de log distant pour déboguer l'ESP32 sans câble.
+
+---
+
+## 📂 Structure du Projet
+
+```text
+├── backend/                  # Cerveau du robot (Python)
+│   ├── src/                  # Logique serveur, LLM et TTS
+│   ├── voices/               # Profils vocaux et clones
+│   ├── logs/                 # Traces d'exécution et logs distants
 │   └── requirements.txt      # Dépendances Python
 │
-├── firmware/                 # Code embarqué pour ESP32
-│   ├── src/                  # Fichiers sources C++
-│   ├── include/              # Fichiers d'en-tête (headers)
-│   └── platformio.ini        # Configuration PlatformIO
+├── firmware/                 # Corps du robot (ESP32-S3 N16R8)
+│   ├── src/                  # Driver audio, affichage et WS
+│   ├── include/              # Configuration matérielle
+│   └── platformio.ini        # Config PlatformIO
 │
-├── .gitignore                # Fichiers à ignorer par git
-└── README.md                 # Cette documentation
+├── tools/                    # Utilitaires (Mapping IR, tests)
+├── les testes/               # Bancs d'essai unitaires matériel
+└── scripts/                  # Scripts de démarrage (start_server.sh, etc.)
 ```
 
-## Backend
-Le serveur utilise un réseau WebSocket pour communiquer avec l'ESP32.
+---
 
-### Prérequis (Serveur Pop!_OS / Ubuntu)
-Pour que les outils de test audio (comme le simulateur PC ou la capture micro) fonctionnent sous Linux, vous devez d'abord installer les bibliothèques système de gestion du son :
+## 💻 Installation du Backend
+
+### 1. Prérequis Système
+Installez les dépendances audio pour Linux (Ubuntu/Pop!_OS) :
 ```bash
-sudo apt-get update
-sudo apt-get install portaudio19-dev
-sudo apt-get install libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev
+sudo apt-get update && sudo apt-get install -y portaudio19-dev libavformat-dev libavcodec-dev
 ```
 
-Ensuite, installez toutes les dépendances Python :
+### 2. Environnement Python
 ```bash
 cd backend
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### ⚠️ IMPORTANT : Modèles IA (Non inclus sur GitHub)
-Pour des raisons de taille de fichiers, les modèles d'Intelligence Artificielle (GGUF, ONNX) ne sont pas stockés sur GitHub. Vous devez les copier ou les télécharger manuellement dans les dossiers suivants :
+### 3. 📥 Modèles IA (Obligatoire)
+Les modèles ne sont pas inclus sur GitHub (>10Mo). Téléchargez-les et placez-les comme suit :
+- **LLM** : `backend/models/qwen2.5-7b-instruct-q4_k_m.gguf`
+- **TTS** : `backend/models/piper/fr_FR-siwis-medium.onnx`
+- **Vocal** : `backend/models/kokoro-v1.0.onnx`
 
-1. **Modèle LLM (Llama.cpp) :**
-   - Placez `qwen2.5-7b-instruct-q4_k_m.gguf` dans le dossier `backend/models/`.
-2. **Modèle TTS (Piper ONNX) :**
-   - Placez le fichier de voix `fr_FR-siwis-medium.onnx` (et son fichier `.json` associé) dans le dossier `backend/piper/`. L'exécutable lui-même est installé via pip (`piper-tts`).
+---
 
-### Exécution du Serveur Principal
-```bash
-python src/server.py
-```
+## 🔌 Matériel & Câblage (ESP32-S3)
 
-### Exécution des Tests Locaux (Micro PC)
-Pour tester l'IA sans ESP32 :
-```bash
-python tools/simulateur_pc.py
-# ou pour le pipeline pas à pas :
-python test/test_pipeline.py
-```
+Le projet est optimisé pour un **ESP32-S3 N16R8** (16MB Flash, 8MB PSRAM).
 
-## Firmware (Câblage & Matériel)
-Le code est conçu pour être compilé et flashé avec [PlatformIO](https://platformio.org/).
-
-### Schéma de Câblage (Pinout ESP32)
-Le robot requiert une connexion précise entre l'ESP32 et les périphériques I2S/SPI. Voici le tableau de connexion officiel :
-
-| Composant | Broche Composant | Broche ESP32 (GPIO) | Notes |
+| Composant | Signal | GPIO | Note |
 | :--- | :--- | :--- | :--- |
-| **Microphone (INMP441)** | L/R | GND | Pour sélectionner le canal gauche par défaut |
-| | WS | 25 | Word Select (Horloge de canal) |
-| | SCK | 32 | Serial Clock (Horloge binaire) |
-| | SD | 33 | Serial Data (Données audio sortantes) |
-| **Haut-Parleur (MAX98357A)**| LRC (WS) | 26 | Word Select |
-| | BCLK | 27 | Bit Clock |
-| | DIN | 12 | Data IN (Données audio entrantes) |
-| | VIN | 5V / VIN | Attention: Préférable d'alimenter avec un Step-Down 5V externe |
-| **Écran (ST7789 SPI)** | MOSI | 23 | Master Out Slave In |
-| | MISO | 19 | Master In Slave Out |
-| | SCK | 18 | SPI Clock |
-| | CS | 14 | Chip Select (Écran) |
-| | DC | 21 | Data/Command |
-| | RST | 4 | Reset |
-| **Lecteur Carte SD** | CS | 5 | Chip Select (Carte SD) |
-| | MOSI, MISO, SCK | 23, 19, 18 | *Partagés avec le bus SPI de l'écran TFT* |
+| **Micro (INMP441)** | SCK / WS / SD | 32 / 25 / 33 | I2S Input |
+| **HP (MAX98357A)** | BCLK / LRC / DIN | 27 / 26 / 12 | I2S Output |
+| **Écran (ST7789)** | SCL / SDA / CS | 18 / 23 / 14 | SPI Bus |
+| **Infrarouge** | IR Recv | 16 | Contrôle à distance |
 
-> **⚠️ AVERTISSEMENT ALIMENTATION :**
-> Une seule batterie 18650 "générique" (3.7V) n'est **PAS** suffisante pour alimenter simultanément l'ESP32 (Wi-Fi), l'amplificateur audio et l'écran TFT. Les pics de courant (notamment lors de l'envoi Wi-Fi ou de l'audio) vont causer des chutes de tension (*Brownouts*) et redémarrer la carte.
-> **Solution recommandée :** Utilisez un PowerBank 5V/2A branché en USB, ou 2 batteries 18650 en série (7.4V) régulées par un module Step-Down LM2596 réglé à 5.0V.
+> [!IMPORTANT]
+> **Alimentation** : Utilisez une source 5V/2A stable. L'activation simultanée du Wi-Fi et de l'audio I2S provoque des brownouts sur les alimentations faibles.
+
+---
+
+## 🚀 Démarrage Rapide
+
+1. **Lancer le serveur** :
+   ```bash
+   ./start_server.sh
+   ```
+2. **Flasher l'ESP32** : Utilisez VSCode + PlatformIO pour uploader le dossier `firmware`.
+
+---
+
+## 🛠️ Outils Utilitaires
+
+- `tools/ir_mapper.py` : Pour mapper les touches de votre télécommande IR.
+- `convert_voice.sh` : Script pour préparer des échantillons vocaux pour le clonage.
+- `test/test_pipeline.py` : Teste la chaîne IA complète sur votre PC.
+
+---
+
+## 📄 Licence
+Ce projet est sous licence MIT. Libre à vous de l'utiliser et de le modifier !
+glé à 5.0V.
 
 ### Prérequis Logiciels
 - VSCode avec l'extension PlatformIO
