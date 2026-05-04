@@ -8,9 +8,9 @@
 const char* server_ip = "192.168.11.113";
 const uint16_t server_port = 8766;
 
-#define I2S_SCK     40
-#define I2S_WS      41
-#define I2S_SD      42
+#define I2S_SCK     4
+#define I2S_WS      5
+#define I2S_SD      6
 
 #define SAMPLE_RATE 16000
 #define RECORD_TIME_SEC 20
