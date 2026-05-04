@@ -7,42 +7,50 @@
 #include <esp_heap_caps.h>
 
 // ============================================================
-//  FaceRenderer — Visages vectoriels LVGL pour Robot IA v3.0
-//  Remplace entièrement le système BMP/SD.
-//  - Zéro lecture SD, tout en RAM/flash
-//  - Animations fluides via lv_anim_t
-//  - Sync bouche/audio via setAudioRMS()
-//  - Intégration directe avec displayTask et speakerTask
+//  FaceRenderer v4.0 — "Neon Soul"
+//  Visage vectoriel LVGL premium pour Robot IA
+//
+//  Nouveautés v4 :
+//  - Paupières (eyelid) pour clignement naturel (le globe reste fixe)
+//  - Reflets secondaires sur chaque œil (double highlight = yeux vivants)
+//  - Lip-sync asymétrique (attack rapide / release lent)
+//  - Bouche avec ouverture + élargissement dynamique
+//  - Gradient sur les yeux (LVGL bg_grad)
+//  - Palette de couleurs harmonieuse et premium
 // ============================================================
 
-// --- États du visage (miroir du project_state.json) ---
+// --- États du visage ---
 enum class FaceEmotion : uint8_t {
-    NEUTRE    = 0,   // Cyan, yeux rectangles, bouche ligne
-    ECOUTE    = 1,   // Vert, yeux agrandis, anneau pulsant
-    REFLEXION = 2,   // Magenta, yeux asymétriques, "?" flottant
-    PARLE     = 3,   // Vert menthe, bouche animée sync audio
-    ERREUR    = 4    // Rouge, yeux en X, bouche inversée
+    NEUTRE    = 0,
+    ECOUTE    = 1,
+    REFLEXION = 2,
+    PARLE     = 3,
+    ERREUR    = 4
 };
 
-// --- Paramètres d'animation fine ---
+// --- Configuration fine ---
 struct FaceConfig {
     // Timing
-    uint16_t blink_interval_ms  = 3500;  // Intervalle entre clignements
-    uint16_t blink_duration_ms  = 180;   // Durée d'un clignement
-    uint16_t transition_ms      = 250;   // Transition entre émotions
-    uint16_t mouth_smooth_ms    = 60;    // Lissage de la bouche (audio)
+    uint16_t blink_interval_min = 2500;
+    uint16_t blink_interval_max = 5000;
+    uint16_t blink_close_ms     = 80;    // Fermeture rapide
+    uint16_t blink_open_ms      = 140;   // Ouverture plus lente (naturel)
+    uint16_t transition_ms      = 200;
 
-    // Audio → Bouche
-    float    rms_scale          = 8.0f;  // Amplification du RMS pour la bouche
-    float    rms_min_open       = 0.04f; // Seuil minimum pour ouvrir la bouche
-    float    rms_max_open       = 0.40f; // Seuil de saturation (bouche max ouverte)
+    // Lip-sync asymétrique
+    float    mouth_attack_ms    = 25.0f;  // Bouche s'ouvre vite (25ms)
+    float    mouth_release_ms   = 90.0f;  // Bouche se ferme doucement (90ms)
+    float    rms_min_open       = 0.03f;
+    float    rms_max_open       = 0.35f;
+    float    rms_scale          = 6.0f;
+    float    mouth_width_scale  = 0.15f;  // Bouche s'élargit quand ouverte
 
     // Visuel
-    uint8_t  pupil_offset_idle  = 3;     // Pixels de déplacement oculaire en IDLE
-    uint16_t cheek_blink_alpha  = 110;   // Opacité des joues (0-255)
+    uint8_t  pupil_size         = 28;
+    uint16_t cheek_alpha        = 80;
 };
 
-// --- Interpolation Helper ---
+// --- Interpolation Helpers ---
 struct SmoothValue {
     float current = 0.0f;
     float target = 0.0f;
@@ -79,16 +87,13 @@ struct ElementState {
 };
 
 struct FaceState {
-    ElementState eye_l;
-    ElementState eye_r;
-    ElementState pupil_l;
-    ElementState pupil_r;
-    ElementState shine_l;
-    ElementState shine_r;
-    ElementState mouth_outer;
-    ElementState mouth_inner;
-    ElementState cheek_l;
-    ElementState cheek_r;
+    ElementState eye_l, eye_r;
+    ElementState pupil_l, pupil_r;
+    ElementState shine_l, shine_r;
+    ElementState shine2_l, shine2_r;   // Reflet secondaire
+    ElementState eyelid_l, eyelid_r;   // Paupière
+    ElementState mouth_outer, mouth_inner;
+    ElementState cheek_l, cheek_r;
 };
 
 // ============================================================
@@ -99,89 +104,74 @@ public:
     FaceRenderer();
     ~FaceRenderer();
 
-    // --- Cycle de vie (à appeler depuis displayTask) ---
-    // Initialise LVGL + drivers TFT. Appeler APRES lv_init().
     void init(TFT_eSPI* tft);
-
-    // Libère toutes les ressources LVGL. Appeler avant deinit du display.
     void deinit();
 
-    // --- Contrôle de l'émotion ---
-    // Change l'émotion avec transition animée.
-    // Thread-safe : peut être appelé depuis n'importe quelle tâche FreeRTOS.
     void setEmotion(FaceEmotion emotion);
-
-    // Shortcut string : "neutre", "ecoute", "reflexion", "parle", "erreur"
     void setEmotionFromString(const String& name);
-
-    // --- Sync audio (appeler depuis speakerTask à chaque chunk) ---
-    // rms : valeur RMS normalisée 0.0 - 1.0 du chunk audio courant
     void setAudioRMS(float rms);
-
-    // --- Boucle principale (appeler toutes les 5-10ms dans displayTask) ---
     void tick(uint32_t delta_ms);
 
-    void _applyEmotion(FaceEmotion emotion, bool animated); // Publique pour callback
+    void _applyEmotion(FaceEmotion emotion, bool animated);
 
-    // --- Configuration ---
     FaceConfig config;
-
-    // --- Accès état ---
     FaceEmotion currentEmotion() const { return _emotion; }
     bool isInitialized() const { return _initialized; }
 
 private:
-    // ---- Contexte LVGL ----
-    TFT_eSPI*         _tft         = nullptr;
+    TFT_eSPI*          _tft         = nullptr;
     lv_disp_draw_buf_t* _draw_buf  = nullptr;
-    lv_color_t*       _buf1        = nullptr;
-    lv_disp_drv_t*    _disp_drv    = nullptr;
-    lv_disp_t*        _disp        = nullptr;
-    bool              _initialized = false;
+    lv_color_t*        _buf1       = nullptr;
+    lv_disp_drv_t*     _disp_drv   = nullptr;
+    lv_disp_t*         _disp       = nullptr;
+    bool               _initialized = false;
 
-    // ---- État ----
     FaceEmotion _emotion      = FaceEmotion::NEUTRE;
     FaceEmotion _prevEmotion  = FaceEmotion::NEUTRE;
     float       _audioRMS     = 0.0f;
-    float       _smoothRMS    = 0.0f;   // RMS lissé pour la bouche
+    float       _smoothRMS    = 0.0f;
+    float       _mouthOpen    = 0.0f;    // Ouverture courante (lissée)
     uint32_t    _lastBlink    = 0;
+    uint32_t    _nextBlinkIn  = 3000;    // Intervalle aléatoire
     bool        _blinking     = false;
     uint32_t    _blinkStart   = 0;
+    bool        _blinkIsDouble = false;
+    uint8_t     _blinkPhase   = 0;
     uint32_t    _elapsed      = 0;
-    uint32_t    _questionPhase= 0;      // Phase animation "?" en REFLEXION
-    float       _breathPhase  = 0.0f;   // Animation de respiration
-    float       _lookX        = 0.0f;   // Mouvement des yeux
+    uint32_t    _questionPhase = 0;
+    float       _breathPhase  = 0.0f;
+    float       _lookX        = 0.0f;
     float       _lookY        = 0.0f;
     uint32_t    _lastLookTime = 0;
 
-    FaceState   _state;                 // État interpolé
+    FaceState   _state;
 
-    // ---- Objets LVGL ----
-    lv_obj_t* _screen         = nullptr;
-    lv_obj_t* _bg             = nullptr;
+    // Objets LVGL
+    lv_obj_t* _screen       = nullptr;
+    lv_obj_t* _bg           = nullptr;
 
-    // Yeux
-    lv_obj_t* _eye_left       = nullptr;
-    lv_obj_t* _eye_right      = nullptr;
-    lv_obj_t* _pupil_left     = nullptr;
-    lv_obj_t* _pupil_right    = nullptr;
-    lv_obj_t* _shine_left     = nullptr;
-    lv_obj_t* _shine_right    = nullptr;
+    lv_obj_t* _eye_left     = nullptr;
+    lv_obj_t* _eye_right    = nullptr;
+    lv_obj_t* _pupil_left   = nullptr;
+    lv_obj_t* _pupil_right  = nullptr;
+    lv_obj_t* _shine_left   = nullptr;
+    lv_obj_t* _shine_right  = nullptr;
+    lv_obj_t* _shine2_left  = nullptr;
+    lv_obj_t* _shine2_right = nullptr;
+    lv_obj_t* _eyelid_left  = nullptr;
+    lv_obj_t* _eyelid_right = nullptr;
 
-    // Bouche
-    lv_obj_t* _mouth_outer    = nullptr;
-    lv_obj_t* _mouth_inner    = nullptr;
+    lv_obj_t* _mouth_outer  = nullptr;
+    lv_obj_t* _mouth_inner  = nullptr;
 
-    // Joues
-    lv_obj_t* _cheek_left     = nullptr;
-    lv_obj_t* _cheek_right    = nullptr;
+    lv_obj_t* _cheek_left   = nullptr;
+    lv_obj_t* _cheek_right  = nullptr;
 
-    // Déco émotion-spécifique
-    lv_obj_t* _deco_1         = nullptr;  // "?" label / anneau / X gauche / bar 1
-    lv_obj_t* _deco_2         = nullptr;  // point "." / anneau2 / X droit / bar 2
-    lv_obj_t* _scan_ring      = nullptr;  // Anneau ECOUTE
+    lv_obj_t* _deco_1       = nullptr;
+    lv_obj_t* _deco_2       = nullptr;
+    lv_obj_t* _scan_ring    = nullptr;
 
-    // ---- Méthodes privées ----
+    // Méthodes privées
     void _buildBaseObjects();
     void _destroyDecoObjects();
     void _applyNeutre(bool animated);
@@ -190,41 +180,38 @@ private:
     void _applyParle(bool animated);
     void _applyErreur(bool animated);
 
-    void _setEyeOpenness(float left, float right, bool animated);
-    void _setMouthOpen(float openness);
+    void _setEyeOpenness(float left, float right);
     void _updateBlink(uint32_t now);
-    void _updateAudioMouth(uint32_t delta_ms);
+    void _updateLipSync(uint32_t delta_ms);
     void _updateReflexionAnim(uint32_t delta_ms);
     void _updateScanRing(uint32_t delta_ms);
-    void _setObjectColor(lv_obj_t* obj, lv_color_t color, bool animated);
+    void _updateAllElements(float alpha, float breathY);
 
-    // Helpers couleur
-    static uint32_t _colorNeutreHex()    { return 0x00FFFF; } // Cyan
-    static uint32_t _colorEcouteHex()    { return 0x00FF64; } // Vert
-    static uint32_t _colorReflexionHex() { return 0xFF32FF; } // Magenta
-    static uint32_t _colorParleHex()     { return 0x00FF9F; } // Vert menthe
-    static uint32_t _colorErreurHex()    { return 0xFF2020; } // Rouge
+    // Palette "Neon Soul" — Couleurs premium harmonisées
+    static uint32_t _colNeutreHex()    { return 0x88D4F2; } // Bleu ciel lumineux
+    static uint32_t _colEcouteHex()    { return 0x7EEFC4; } // Menthe néon
+    static uint32_t _colReflexionHex() { return 0xB88CF7; } // Lavande électrique
+    static uint32_t _colParleHex()     { return 0xFFA07A; } // Saumon chaud
+    static uint32_t _colErreurHex()    { return 0xF76C6C; } // Rouge corail
+    static uint32_t _colBgHex()        { return 0x080E18; } // Nuit profonde
+    static uint32_t _colPupilHex()     { return 0x0C1520; } // Noir bleuté
+    static uint32_t _colMouthInHex()   { return 0xE8617A; } // Rose intérieur bouche
+    static uint32_t _colCheekHex()     { return 0xFFADC8; } // Rose joues doux
 
-    static lv_color_t _colorNeutre()    { return lv_color_hex(_colorNeutreHex()); }
-    static lv_color_t _colorEcoute()    { return lv_color_hex(_colorEcouteHex()); }
-    static lv_color_t _colorReflexion() { return lv_color_hex(_colorReflexionHex()); }
-    static lv_color_t _colorParle()     { return lv_color_hex(_colorParleHex()); }
-    static lv_color_t _colorErreur()    { return lv_color_hex(_colorErreurHex()); }
-    static lv_color_t _colorBg()        { return lv_color_hex(0x000000); } // Fond Noir pur
+    static lv_color_t _colBg() { return lv_color_hex(_colBgHex()); }
 
     static const uint16_t SCR_W = 320;
     static const uint16_t SCR_H = 240;
-    static const uint16_t EYE_W = 72;   // Largeur œil de base
-    static const uint16_t EYE_H = 72;   // Hauteur œil de base (carré arrondi)
-    static const uint16_t EYE_LX = 80;  // X centre œil gauche
-    static const uint16_t EYE_RX = 240; // X centre œil droit
-    static const uint16_t EYE_Y  = 95;  // Y centre des yeux
-    static const uint16_t MOUTH_Y = 175; // Y centre bouche
+    static const uint16_t EYE_W = 76;
+    static const uint16_t EYE_H = 76;
+    static const uint16_t EYE_LX = 90;
+    static const uint16_t EYE_RX = 230;
+    static const uint16_t EYE_Y  = 95;
+    static const uint16_t MOUTH_Y = 185;
 };
 
 // ============================================================
-//  Utilitaire : conversion RMS pour speakerTask
-//  Appeler dans speakerTask avant audio->writeSpeaker()
+//  Utilitaire RMS pour speakerTask
 // ============================================================
 inline float computeRMS(const uint8_t* buffer, size_t length) {
     if (length < 2) return 0.0f;

@@ -6,19 +6,51 @@
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 
+// ═══ Moniteur Série sans fil (Remote Logger) ═══════════════════════
+// Mettre à false pour désactiver tous les REMOTELOG en une ligne.
+#define ENABLE_REMOTE_DEBUG true
+
+// Macro sécurisée :
+//   • Activée  : formate et envoie le log via WebSocket (JSON {"log":"..."})
+//   • Désactivée : compilée à zéro (aucun overhead CPU ni mémoire)
+// INTERDIT dans micTask / speakerTask (boucles critiques audio).
+#if ENABLE_REMOTE_DEBUG
+  #define REMOTELOG(fmt, ...) \
+    do { \
+      if (network && network->isConnected()) { \
+        char _rlog_buf[128]; \
+        snprintf(_rlog_buf, sizeof(_rlog_buf), fmt, ##__VA_ARGS__); \
+        network->sendDebug(_rlog_buf); \
+      } \
+    } while(0)
+#else
+  #define REMOTELOG(fmt, ...) do {} while(0)
+#endif
+// ═════════════════════════════════════════════════════════════════════════════
+
 class Network_WS {
 public:
     void initWiFi(const char* ssid, const char* password);
     void initWebSocket(const char* server_ip, uint16_t server_port);
 
-    // Doit être appelé continuellement dans la boucle (ou la tâche FreeRTOS)
+    // Maintenir la connexion active (appeler dans la tâche réseau)
     void loop();
 
-    // Permet d'envoyer un buffer binaire (audio du micro) au serveur
+    // Envoyer un buffer binaire (audio micro) au serveur
     void sendAudio(const uint8_t *payload, size_t length);
-    bool isConnected(); // Nouvelle méthode
 
-    // Fonction de rappel interne pour la librairie WebSockets
+    // Envoyer un statut JSON au serveur (ex: {"status":"listening"})
+    void sendStatus(const char* status);
+
+    // Envoyer un log texte au serveur → logs/esp32_remote.log
+    // NE PAS appeler depuis micTask/speakerTask (boucles audio critiques).
+    void sendDebug(const char* message);
+    void sendCmd(const char* cmd);      // Commande IR → serveur Python
+
+    // État de la connexion WebSocket
+    bool isConnected();
+
+    // Callback statique pour la bibliothèque WebSockets
     static void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 
 private:

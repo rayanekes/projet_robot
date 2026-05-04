@@ -13,7 +13,7 @@
       "audio_output": {
         "model": "MAX98357A (Amplifier I2S)",
         "config": "22.05kHz, Mono Left (SD pin to 5V via 390k resistor)",
-        "pins": { "LRC": 26, "BCLK": 27, "DIN": 22, "SD_MUTE": 15 },
+        "pins": { "LRC": 26, "BCLK": 27, "DIN": 12, "SD_MUTE": 15 },
         "note": "Anti-hiss logic: DIN forced to LOW at boot; SD_MUTE active LOW"
       },
       "display": {
@@ -49,7 +49,7 @@
   "ai_backend": {
     "vad": "Silero VAD (Threshold 0.3)",
     "stt": "Faster-Whisper Medium (CUDA)",
-    "llm": "Qwen2.5-7B-Instruct-GGUF (Stable on 6GB VRAM GPUs)",
+    "llm": "Qwen2.5-3B-Instruct-GGUF q5_k_m (rapide, ~2.3GB VRAM)",
     "tts": "Piper (fr_FR-siwis-medium.onnx)",
     "protocol": "WebSocket port 8765"
   },

@@ -1,12 +1,37 @@
-faster-whisper==1.0.1
-silero-vad==5.1.2
-llama-cpp-python==0.2.60
-websockets==12.0
-numpy==1.26.4
-torch==2.2.1
-scipy==1.12.0
-sounddevice==0.4.6
-Pillow==10.2.0
-# TTS Options: piper-tts OU xtts (choose one or both)
+# =============================================================
+# Robot Assistant IA - Dépendances Python
+# =============================================================
+# ⚠️  CES PAQUETS SONT DÉJÀ INSTALLÉS DANS ~/tts_env
+# Pour régénérer : pip install -r requirements.txt
+# Activer l'env  : source ~/tts_env/bin/activate
+# =============================================================
+
+# --- Reconnaissance vocale & VAD ---
+silero-vad==6.2.1
+# faster-whisper supprimé (ASR géré par Gemma 4 E2B)
+
+# --- LLM local & Multimodal (Gemma 4 E2B) ---
+llama-cpp-python==0.3.21
+
+# --- Serveur WebSocket ---
+websockets==16.0
+
+# --- Audio & Traitement signal ---
+numpy==2.4.4
+scipy==1.17.1
+sounddevice
+soundfile
+
+# --- Torch CUDA 12.1 ---
+torch==2.5.1+cu121
+torchaudio==2.5.1+cu121
+torchvision==0.20.1+cu121
+
+# --- Images ---
+Pillow
+
+# --- TTS : Kokoro ONNX Streaming ---
+kokoro-onnx
+
+# --- TTS Fallback : Piper (CPU, français) ---
 piper-tts==1.4.2
-xtts-v2==0.3.0

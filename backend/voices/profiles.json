@@ -1,0 +1,15 @@
+{
+  "default": {
+    "fr": "reference_fr.wav",
+    "ar": "reference_ar.wav",
+    "description": "Voix de référence par défaut"
+  },
+  "baba": {
+    "fr": "",
+    "ar": "baba_ar.wav"
+  },
+  "rayane": {
+    "fr": "rayane_fr.wav",
+    "ar": "rayane_ar.wav"
+  }
+}

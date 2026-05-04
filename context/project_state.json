@@ -3,7 +3,7 @@
   "version": "3.0.0",
   "goal": "Agent conversationnel autonome 100% local avec interface Spotify-like et animations GIF fluides.",
   "hardware_config": {
-    "mcu": "ESP32 DevKit (dual-core 240MHz, 520KB SRAM)",
+    "mcu": "YD-ESP32-S3 N16R8 (VCC-GND Studio) — dual-core 240MHz, 512KB SRAM, 8MB PSRAM OPI, 16MB Flash",
     "gpio_map": {
       "SPI_BUS": { "SCK": 18, "MOSI": 23, "MISO": 19, "note": "Shared bus for TFT, SD, and Touch" },
       "TFT_ST7789": { "CS": 14, "DC": 21, "RST": 4, "freq": "20MHz" },

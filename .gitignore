@@ -1,18 +1,33 @@
-# PlatformIO (Dossier de 233 Mo)
-.pio/
-.vscode/
+# PlatformIO
+**/.pio/
+**/.vscode/
 
-# Python (Dossier de 200 Mo)
+# Python
+**/*.pyc
+**/__pycache__/
+.venv/
 tts_env/
-__pycache__/
-*.pyc
 
-# Modèles IA et Poids (60 Mo+)
-*.onnx
-onnx/
-models/
+# Modèles IA et Poids (Large files)
+**/models/
+**/*.gguf
+**/*.onnx
+**/*.bin
+**/*.pt
+backend/piper/
 
-# Médias lourds
-*.bmp
-*.mp4
-temp_audio/
+# Médias lourds et fichiers de build
+**/*.mp4
+**/*.elf
+**/*.map
+**/*.a
+**/*.o
+**/*.d
+
+# Logs
+**/*.log
+backend/logs/
+
+# Divers
+.aider*
+.env

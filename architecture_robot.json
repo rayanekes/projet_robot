@@ -1,0 +1,110 @@
+{
+  "project_name": "Assistant Robotique IA - Nouvelle Génération",
+  "version": "2.0.0-Streaming",
+  "description": "Un robot de bureau intelligent et réactif, propulsé par une IA locale, avec une latence quasi nulle grâce au streaming de bout en bout.",
+  
+  "hardware": {
+    "ancien_materiel": [
+      {
+        "composant": "ESP32 (Standard)",
+        "role": "Contrôleur principal (Firmware C++)",
+        "limitation": "Pas de PSRAM pour stocker l'audio, contention du bus SPI avec l'écran causant des crashs sonores."
+      },
+      {
+        "composant": "Transistor / Sortie Analogique",
+        "role": "Haut-parleur",
+        "limitation": "Son métallique, faible puissance, pas de véritable DAC."
+      },
+      {
+        "composant": "TTP223",
+        "role": "Bouton tactile",
+        "limitation": "Utilisé pour l'interruption, mais peu naturel comparé à une interruption vocale (Barge-in)."
+      }
+    ],
+    "nouveau_materiel_s3": [
+      {
+        "composant": "ESP32-S3 N16R8",
+        "role": "Nouveau cerveau matériel",
+        "avantage": "16 Mo Flash pour les animations/visages, 8 Mo PSRAM pour des tampons audio illimités. Mode DMA natif pour l'écran 60 FPS sans bloquer l'audio."
+      },
+      {
+        "composant": "MAX98357A",
+        "role": "Amplificateur Audio I2S numérique",
+        "avantage": "Son numérique cristallin et puissant pour alimenter le gros haut-parleur 6W 8Ω. Indispensable car la S3 n'a plus de sortie analogique native."
+      },
+      {
+        "composant": "HC-SR04 (Optionnel)",
+        "role": "Capteur ultrasonique de distance",
+        "avantage": "Détecte la présence humaine (2cm — 4m) pour réveiller le robot. Nécessite un diviseur de tension (5V → 3.3V) sur le pin ECHO."
+      },
+      {
+        "composant": "INMP441",
+        "role": "Microphone omnidirectionnel I2S",
+        "avantage": "Capture vocale numérique de haute précision."
+      }
+    ]
+  },
+
+  "software_architecture": {
+    "serveur_python_pc": {
+      "llm": {
+        "modele": "Gemma 4 E2B (Quantifié Q4_K_M)",
+        "framework": "llama-cpp-python",
+        "technologie": "Streaming Token-par-Token. Génère la réponse sous format JSON strict pour contrôler la parole et l'émotion simultanément."
+      },
+      "stt_reconnaissance_vocale": {
+        "modele": "Whisper Large-v3-Turbo",
+        "technologie": "VRAM optimisée (Float16/Int8). Traduit 7 secondes d'audio en ~500ms. Filtrage strict des hallucinations (ex: 'Sous-titres FR')."
+      },
+      "tts_synthese_vocale": {
+        "modele": "Kokoro-ONNX",
+        "technologie": "Exécution sur CPU (ultra rapide : ~300ms/phrase) pour libérer la VRAM pour Gemma. Architecture en streaming asynchrone phrase-par-phrase."
+      },
+      "vad_detection_voix": {
+        "modele": "Silero VAD",
+        "technologie": "Analyse du volume (RMS) + IA PyTorch pour couper l'enregistrement exactement quand l'utilisateur finit de parler."
+      }
+    },
+    "firmware_esp32": {
+      "framework": "PlatformIO (C++ / FreeRTOS)",
+      "communication": "WebSockets avec JSON",
+      "taches_freertos": "1. Audio In (Micro) | 2. Audio Out (Speaker) | 3. Réseau | 4. Visage/Écran"
+    }
+  },
+
+  "aventure_technologique_et_defis": [
+    {
+      "etape": "L'enfer XTTSv2",
+      "probleme": "XTTSv2 était lourd, lent et plantait la carte graphique (CUDA Device-side assert) causant des erreurs OOM (Out Of Memory).",
+      "solution": "Abandon de XTTSv2 au profit de Kokoro-ONNX fonctionnant silencieusement et incroyablement vite sur le processeur (CPU)."
+    },
+    {
+      "etape": "Le Crash 1011 de l'ESP32",
+      "probleme": "Le serveur Python envoyait des réponses de 200 Ko (15 secondes d'audio) d'un coup. L'ESP32 explosait sa mémoire tampon et déconnectait le WebSocket.",
+      "solution": "Création du concept de 'Pacing' : le Python n'envoie que 2 Ko à la fois, avec un délai très précis (1.05x la vitesse réelle) pour que l'ESP32 lise le son au fur et à mesure."
+    },
+    {
+      "etape": "La Révolution du Streaming End-to-End",
+      "probleme": "Le LLM mettait 3 à 4 secondes pour réfléchir à toute sa réponse avant que le robot ne commence à parler.",
+      "solution": "Refonte totale. Le LLM crache les mots en temps réel, un script parse le JSON dynamiquement, isole les phrases par ponctuation, et les envoie à Kokoro. Latence réduite à < 500ms."
+    },
+    {
+      "etape": "Les Hallucinations Whisper",
+      "probleme": "Dans le silence, Whisper inventait des mots comme 'Sous-titrage FR ?' ou 'Thank you'.",
+      "solution": "Nettoyage du texte et implémentation d'une Blacklist dynamique dans server.py."
+    }
+  ],
+
+  "futures_ameliorations_planifiees": {
+    "hardware_firmware": [
+      "ESP-SR : Wake Word local ('Hey Robot') et Acoustic Echo Cancellation (AEC) pour parler en même temps que lui sans utiliser de bouton.",
+      "Visage DMA : Utilisation de la PSRAM pour dessiner des spritesheets (60 FPS) sans lagger l'audio.",
+      "Sleep Mode : Mise en veille profonde avec la télécommande IR pour couper l'écran."
+    ],
+    "software_ia": [
+      "Mémoire RAG Fantôme : Gemma enregistre les informations de l'utilisateur via une commande interne cachée pour ne jamais rien oublier.",
+      "Mode 'Thinking' (Chain of Thought) : Pour les mini-jeux, le LLM remplit un champ 'thought' avant de parler. Ça rajoute 1s de latence, compensée par une animation 'Réflexion' sur le robot, mais lui donne un QI imbattable.",
+      "Multi-Personnalités : Touches IR mappées pour changer le Prompt et la voix à la volée."
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+═══════════════════════════════════════════════════════
+  DOSSIER DE DÉPÔT DES ENREGISTREMENTS VOCAUX
+═══════════════════════════════════════════════════════
+
+COMMENT UTILISER :
+  1. Enregistre ta voix avec le Pixel 8 (Google Recorder)
+  2. Transfère le fichier ici (USB / ADB / Google Drive)
+  3. RENOMME le fichier selon la convention :
+       PROFIL_fr.m4a   →  voix française pour le profil PROFIL
+       PROFIL_ar.m4a   →  voix arabe pour le profil PROFIL
+
+EXEMPLES :
+  rayane_fr.m4a        ← 15-30s de parole française naturelle
+  rayane_ar.m4a        ← 15-30s de parole arabe/darija naturelle
+
+CONVERSION AUTOMATIQUE :
+  - Lance ./convert_voice.sh (ou ./start_server.sh)
+  - Le fichier est converti → backend/voices/rayane_fr.wav
+  - L'original est déplacé → inbox/processed/
+  - profiles.json est mis à jour automatiquement
+  - Le cache d'embedding est calculé au premier démarrage
+    puis réutilisé (voices/.cache/rayane_fr.pt)
+
+CONSEILS D'ENREGISTREMENT :
+  • 15 à 30 secondes de parole naturelle
+  • Endroit calme, pas de musique
+  • Parle naturellement, sans faire de pauses longues
+  • Sur Pixel 8 : appli "Enregistreur" de Google
+  • Via ADB : adb pull /sdcard/Download/rec.m4a ./
+
+═══════════════════════════════════════════════════════
