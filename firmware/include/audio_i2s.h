@@ -48,7 +48,7 @@ private:
   i2s_chan_handle_t _mic_handle = nullptr; // Handle mic
   i2s_chan_handle_t _spk_handle = nullptr; // Handle speaker
   std::atomic<float> _current_volume_scale; // Facteur de volume dynamique (thread-safe)
-  DRAM_ATTR int16_t _scaled_speaker_buffer[512]; // Buffer pour le scaling audio
+  int16_t _scaled_speaker_buffer[512]; // Buffer pour le scaling audio (DRAM_ATTR supprimé)
 };
 
 #endif // AUDIO_I2S_H
