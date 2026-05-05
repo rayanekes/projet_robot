@@ -38,7 +38,7 @@ GND    ────→   GND
 BCLK   ────→   GPIO 17
 LRC    ────→   GPIO 18
 DIN    ────→   GPIO 21
-SD     ────→   100kΩ → 5V  (active le mode Mono Mix)
+SD     ────→   GPIO 15     (Active/Mute dynamique pour éviter les pops)
 GAIN   ────→   10kΩ → GND  (gain 12dB, idéal pour la voix)
 ```
 

@@ -19,6 +19,7 @@
 #define I2S_SPK_BCLK 17 // Bit Clock
 #define I2S_SPK_WS 18   // Word Select (LRC)
 #define I2S_SPK_DIN 21  // Data In (DOUT du point de vue S3)
+#define I2S_SPK_SD_PIN 15 // Shutdown/Mode pin (Mute dynamique)
 
 // Compensation de volume pour baffle 8Ω :
 // Le MAX98357A est optimisé pour 4Ω (3.2W max).

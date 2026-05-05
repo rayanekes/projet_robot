@@ -13,7 +13,6 @@
 #include <esp_task_wdt.h>
 
 // --- Définition des broches (ESP32-S3 N16R8 — GPIO Matrix) ---
-// NOTE: MAX_SD_MODE_PIN supprimé — l'ampli MAX98357A est géré par la V1
 #define TFT_RST_PIN 13     // Reset écran ST7789
 #define TFT_CS_PIN 10      // CS écran
 #define TFT_BL_PIN 14      // Backlight écran (LED pin)
@@ -437,7 +436,7 @@ void setup() {
 
   xTaskCreatePinnedToCore(networkTask,  "Net",  16384, NULL, 3, NULL, 0);
   xTaskCreatePinnedToCore(displayTask,  "Disp", 16384, NULL, 1, NULL, 1);
-  xTaskCreatePinnedToCore(micTask,      "Mic",  12288, NULL, 4, NULL, 1);
+  xTaskCreatePinnedToCore(micTask,      "Mic",  12288, NULL, 4, NULL, 0);  // Déplacé sur le Core 0 pour équilibrage
   xTaskCreatePinnedToCore(speakerTask,  "Spk",  16384, NULL, 5, NULL, 1);
   xTaskCreatePinnedToCore(debugTask,    "Dbg",  4096,  NULL, 0, NULL, 0);
   xTaskCreatePinnedToCore(commandTask,  "Cmd",  8192,  NULL, 2, NULL, 0);  // Commandes IR locales

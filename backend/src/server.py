@@ -616,17 +616,8 @@ async def handle_esp32_connection(websocket):
     addr = websocket.remote_address
     logger.info(f"🔌 [SERVEUR] Connexion: {addr}")
 
-    # Informer l'ESP32 du début de calibration
-    await websocket.send(json.dumps({'status': 'connected', 'message': 'Calibration en cours...'}))
-    
-    # Petit bip sonore de connexion (440Hz, 0.15s, volume faible)
-    try:
-        sr = 24000
-        t = np.linspace(0, 0.15, int(sr * 0.15), False)
-        beep = (np.sin(2 * np.pi * 440 * t) * 8000).astype(np.int16)
-        await websocket.send(beep.tobytes())
-    except Exception as e:
-        logger.warning(f"Impossible d'envoyer le bip : {e}")
+    # Informer l'ESP32 que le serveur est prêt
+    await websocket.send(json.dumps({'status': 'connected', 'message': 'Serveur prêt.'}))
 
     session = RobotSession(websocket)
     extractor = JSONSpeechExtractor()
@@ -981,47 +972,10 @@ async def handle_esp32_connection(websocket):
             chunk_centered = chunk_f - dc_offset        # Signal centré sur 0
             rms = float(np.sqrt(np.mean(chunk_centered ** 2))) / 32768.0
 
-            # Phase de calibration du bruit ambiant (50 premiers frames)
-            if not session.calibrated:
-                session.calib_samples.append(rms)
-                session.calib_count += 1
-
-                # Diagnostic : afficher les stats des premiers frames pour debug micro
-                if session.calib_count <= 3:
-                    raw_min = int(chunk.min())
-                    raw_max = int(chunk.max())
-                    raw_mean = float(chunk.astype(np.float32).mean())
-                    logger.debug(
-                        f"🎙️ [CALIB #{session.calib_count}] "
-                        f"len={len(chunk)} rms={rms:.5f} "
-                        f"min={raw_min} max={raw_max} mean={raw_mean:.1f}"
-                    )
-
-                if session.calib_count > 50:
-                    p10 = float(np.percentile(session.calib_samples, 10))
-
-                    if p10 == 0.0:
-                        # Micro envoie des zéros — log diagnostique et seuil fixe
-                        max_rms = float(np.max(session.calib_samples))
-                        nonzero = sum(1 for v in session.calib_samples if v > 0)
-                        logger.warning(
-                            f"⚠️ [CALIB] Valeur = 0 ! "
-                            f"frames non-nulles: {nonzero}/50, rms_max: {max_rms:.5f}"
-                        )
-                        logger.warning(
-                            "⚠️ Causes possibles: bit-shift trop grand, "
-                            "DMA non initialisé, câblage INMP441 (vérifier VCC/GND/SD)"
-                        )
-                        # Seuil de secours : fonctionne quand même avec la VAD
-                        session.ambient_noise_rms = 0.005
-                    else:
-                        session.ambient_noise_rms = p10
-
-                    session.calibrated = True
-                    logger.info(
-                        f"✅ Calibré (bruit ambiant p10): {session.ambient_noise_rms:.4f}"
-                    )
-                continue
+            # La calibration a été retirée : l'ESP32-S3 a un bruit très faible,
+            # nous fixons le bruit ambiant à une constante basse pour réagir vite.
+            session.ambient_noise_rms = 0.005
+            session.calibrated = True
 
             # ── MUTE MICRO pendant que le robot parle + cooldown 1.2s ──
             # Empêche le feedback : micro ne capte pas le haut-parleur

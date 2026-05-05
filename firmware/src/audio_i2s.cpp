@@ -92,9 +92,14 @@ void Audio_I2S::initSpeaker() {
   }
 
   err = i2s_channel_enable(_spk_handle);
-  Serial.printf("[I2S-SPK] MAX98357A prêt (SR=%d Hz, BCLK=%d, WS=%d, DIN=%d, "
+
+  // Configuration de la broche SD pour gérer le Mute
+  pinMode(I2S_SPK_SD_PIN, OUTPUT);
+  digitalWrite(I2S_SPK_SD_PIN, LOW); // Mute actif par défaut (évite bruit au boot)
+
+  Serial.printf("[I2S-SPK] MAX98357A prêt (SR=%d Hz, BCLK=%d, WS=%d, DIN=%d, SD=%d, "
                 "Vol=%.0f%%) : %s\n",
-                SAMPLE_RATE_TTS, I2S_SPK_BCLK, I2S_SPK_WS, I2S_SPK_DIN,
+                SAMPLE_RATE_TTS, I2S_SPK_BCLK, I2S_SPK_WS, I2S_SPK_DIN, I2S_SPK_SD_PIN,
                 SPK_VOLUME_SCALE_8OHM * 100.0f, esp_err_to_name(err));
 }
 
@@ -118,6 +123,9 @@ void Audio_I2S::writeSpeaker(const uint8_t *buffer, size_t bufferSize) {
   const size_t nTotal = bufferSize / 2; // Nombre de samples int16
   size_t written = 0;
 
+  // Allumer l'ampli MAX98357A juste avant d'envoyer l'audio
+  digitalWrite(I2S_SPK_SD_PIN, HIGH);
+
   for (size_t offset = 0; offset < nTotal; offset += 512) {
     size_t chunk = (nTotal - offset < 512) ? (nTotal - offset) : 512;
 
@@ -130,6 +138,9 @@ void Audio_I2S::writeSpeaker(const uint8_t *buffer, size_t bufferSize) {
     i2s_channel_write(_spk_handle, scaled, chunk * 2, &written,
                       pdMS_TO_TICKS(200));
   }
+
+  // Éteindre l'ampli une fois l'envoi terminé (évite bruit de fond ou parasite)
+  digitalWrite(I2S_SPK_SD_PIN, LOW);
 }
 
 void Audio_I2S::uninstallMic() { 
