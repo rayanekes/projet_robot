@@ -252,10 +252,11 @@ def load_models():
     vad = load_silero_vad()
     logger.info("✅ Silero VAD chargé")
 
-    # 2. Whisper large-v3-turbo (int8_float16 → ~1.5 Go VRAM)
+    # 2. Whisper large-v3-turbo (float16 → ~1.5 Go VRAM)
     try:
-        whisper = WhisperModel("large-v3-turbo", device="cuda", compute_type="int8_float16")
-        logger.info("✅ Whisper chargé (GPU int8_float16)")
+        # compute_type "float16" au lieu de "int8_float16" évite les blocages silencieux CUDA sur certaines cartes
+        whisper = WhisperModel("large-v3-turbo", device="cuda", compute_type="float16")
+        logger.info("✅ Whisper chargé (GPU float16)")
     except Exception as e:
         logger.warning(f"⚠️  Fallback Whisper CPU : {e}")
         whisper = WhisperModel("large-v3-turbo", device="cpu", compute_type="int8")
