@@ -70,9 +70,9 @@ Le projet est optimisé pour un **ESP32-S3 N16R8** (16MB Flash, 8MB PSRAM).
 
 | Composant | Signal | GPIO | Note |
 | :--- | :--- | :--- | :--- |
-| **Micro (INMP441)** | SCK / WS / SD | 32 / 25 / 33 | I2S Input |
-| **HP (MAX98357A)** | BCLK / LRC / DIN | 27 / 26 / 12 | I2S Output |
-| **Écran (ST7789)** | SCL / SDA / CS | 18 / 23 / 14 | SPI Bus |
+| **Micro (INMP441)** | SCK / WS / SD | 4 / 5 / 6 | I2S Input |
+| **HP (MAX98357A)** | BCLK / LRC / DIN | 17 / 18 / 21 | I2S Output |
+| **Écran (ST7789)** | SCL / SDA / CS / DC / RST / BLK | 12 / 11 / 10 / 9 / 13 / 14 | SPI Bus (FSPI natif) |
 | **Infrarouge** | IR Recv | 16 | Contrôle à distance |
 
 > [!IMPORTANT]

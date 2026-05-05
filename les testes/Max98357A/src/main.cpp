@@ -11,10 +11,9 @@ const char* server_ip = "192.168.11.113"; // Remplacez si l'IP de votre PC a cha
 const uint16_t server_port = 8765;
 
 // ── Pins I2S — MAX98357A ────────────────────────────────────
-#define I2S_BCLK    40
-#define I2S_LRC     41
-#define I2S_DOUT    42
-#define PIN_SD_MODE 47
+#define I2S_BCLK    17
+#define I2S_LRC     18
+#define I2S_DOUT    21
 
 WebSocketsClient webSocket;
 
@@ -61,9 +60,6 @@ void setup() {
     delay(500);
 
     Serial.println("\n=== Test Wi-Fi Audio (Onde Pure 24000Hz) ===");
-
-    pinMode(PIN_SD_MODE, OUTPUT);
-    digitalWrite(PIN_SD_MODE, HIGH);
 
     initI2S();
 
