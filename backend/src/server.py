@@ -951,10 +951,8 @@ async def handle_esp32_connection(websocket):
                 # Moniteur Série sans fil : {"log":"..."}
                 if "log" in data:
                     esp32_logger.info("[ESP32] %s", data["log"])
-                    continue
-
                 # ── Commandes IR télécommande : {"cmd":"cmd:lang:fr"} ────────
-                if "cmd" in data:
+                elif "cmd" in data:
                     cmd_str = data["cmd"]
                     msg_log, tts_phrase, tts_lang = _handle_ir_command(session, cmd_str)
                     logger.info(msg_log)
@@ -966,7 +964,9 @@ async def handle_esp32_connection(websocket):
                         asyncio.ensure_future(
                             _speak_ir_feedback(session, tts_phrase, tts_lang)
                         )
-                    continue
+
+                # Tous les messages texte (JSON) ont été traités, on passe au message suivant
+                continue
 
 
             chunk = np.frombuffer(msg, dtype=np.int16)
